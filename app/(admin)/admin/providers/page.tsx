@@ -1,0 +1,1 @@
+import { AdminSection } from "@/components/admin-section"; export default function Page(){return <AdminSection title="مزودو الذكاء الاصطناعي" description="إضافة المزودات واختبارها ستُفعّل بعد توفير مفتاح تشفير الخادم."/>;}

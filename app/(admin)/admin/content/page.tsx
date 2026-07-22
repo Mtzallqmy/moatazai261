@@ -1,0 +1,1 @@
+import { AdminSection } from "@/components/admin-section"; export default function Page(){return <AdminSection title="إدارة المحتوى" description="المحرر الذكي غير مفعّل في المرحلة الأولى." flag="CONTENT_EDITOR_ENABLED = false"/>;}

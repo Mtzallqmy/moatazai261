@@ -1,0 +1,1 @@
+import { PasswordUpdateForm } from "@/components/password-recovery-form";export default function Page(){return <section className="auth-card"><h1>تحديث كلمة المرور</h1><PasswordUpdateForm/></section>;}

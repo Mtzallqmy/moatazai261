@@ -1,0 +1,2 @@
+import { z } from "zod";
+export const chatRequestSchema=z.object({providerId:z.uuid(),model:z.string().trim().min(1).max(160),messages:z.array(z.object({role:z.enum(["system","user","assistant","tool"]),content:z.string().min(1).max(100_000)})).min(1).max(100),temperature:z.number().min(0).max(2).optional(),maxTokens:z.number().int().positive().max(128_000).optional(),stream:z.boolean().default(true)});

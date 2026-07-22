@@ -1,0 +1,1 @@
+import { AdminSection } from "@/components/admin-section"; export default function Page(){return <AdminSection title="سجل التدقيق والأخطاء" description="لا توجد سجلات قبل إنشاء مخزن الأحداث وتفعيل الخدمة."/>;}

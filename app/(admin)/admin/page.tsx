@@ -1,0 +1,2 @@
+import { AdminSection } from "@/components/admin-section";
+export default function AdminPage(){return <div className="admin-grid"><AdminSection title="المستخدمون" description="لا توجد إحصاءات قبل الاتصال المؤكد بقاعدة البيانات."/><AdminSection title="المزودات" description="تُحفظ المفاتيح مشفرة على الخادم فقط."/><AdminSection title="المحتوى" description="لن تُعرض بيانات تجريبية أو أرقام وهمية."/></div>;}
