@@ -1,0 +1,12 @@
+import "server-only";
+import { createClient } from "@supabase/supabase-js";
+import { requireSupabasePublicEnv } from "@/config/env";
+import { ownerEmails, serverEnv } from "@/config/env.server";
+
+function adminClient(){if(!serverEnv.SUPABASE_SERVICE_ROLE_KEY)return null;const env=requireSupabasePublicEnv();return createClient(env.NEXT_PUBLIC_SUPABASE_URL,serverEnv.SUPABASE_SERVICE_ROLE_KEY,{auth:{persistSession:false,autoRefreshToken:false}});}
+export async function finalizeAuthenticatedUser(user:{id:string;email?:string|null;app_metadata?:{provider?:string}}){
+  const admin=adminClient();if(!admin)return;
+  const email=user.email?.trim().toLowerCase();
+  if(email&&ownerEmails.has(email)){const {data:role}=await admin.from("roles").select("id").eq("name","owner").single();if(role)await admin.from("user_roles").upsert({user_id:user.id,role_id:role.id,assigned_by:user.id},{onConflict:"user_id,role_id"});}
+  await admin.from("login_events").insert({user_id:user.id,provider:user.app_metadata?.provider??"unknown",status:"success",metadata:{source:"oauth_callback"}});
+}
