@@ -1,2 +1,3 @@
 import { AppShell } from "@/components/app-shell";
-export default function AccountLayout({children}:{children:React.ReactNode}){return <AppShell title="مساحتك الخاصة">{children}</AppShell>;}
+import { requireUser } from "@/lib/auth/guards";
+export default async function AccountLayout({children}:{children:React.ReactNode}){await requireUser();return <AppShell title="مساحتك الخاصة">{children}</AppShell>;}

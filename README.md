@@ -19,3 +19,8 @@ The service-role key, encryption keys, OAuth secrets, and provider keys are serv
 ## Feature status
 
 Unfinished capabilities are disabled through explicit feature flags. The application never presents a placeholder operation as successful. Full chat, article editing, Telegram integration, and scheduled publishing intentionally remain outside these phases.
+## Stage 3
+
+Stage 3 adds real provider protocol adapters, encrypted multi-key credentials, connection/model discovery APIs, persisted SSE chat, conversation APIs, private file uploads, inline text extraction/chunking, usage accounting and an RLS/Storage migration. See `docs/ai-provider-architecture.md`, `docs/chat-architecture.md`, and `docs/provider-security.md`.
+
+The live Supabase project must be active and both migrations must be applied before enabling `AI_CHAT_ENABLED` or `FILE_UPLOADS_ENABLED`. Heavy document/media processing, embeddings/RAG retrieval and Amazon Bedrock SigV4 are explicit extension points and are not represented as operational.

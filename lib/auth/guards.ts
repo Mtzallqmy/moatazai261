@@ -13,4 +13,5 @@ export async function requirePermission(code:string){const user=await requireUse
 export async function requireRole(role:string){const user=await requireUser();const {data}=await (await client()).from("user_roles").select("roles!inner(name)").eq("user_id",user.id).eq("roles.name",role).maybeSingle();if(!data)redirect("/403");return user;}
 export async function isOwner(){const user=await getCurrentUser();if(!user)return false;const {data}=await (await client()).rpc("is_owner",{target_user:user.id});return Boolean(data);}
 export async function canAccessAdmin(){const user=await getCurrentUser();if(!user)return false;const {data}=await (await client()).rpc("has_permission",{permission_code:"admin.access",target_user:user.id});return Boolean(data);}
+export async function hasCurrentPermission(code:string){const user=await getCurrentUser();if(!user)return false;const {data}=await (await client()).rpc("has_permission",{permission_code:code,target_user:user.id});return Boolean(data);}
 export async function getCurrentProfile(){const user=await requireUser();const {data}=await (await client()).from("profiles").select("*").eq("id",user.id).single();return data;}

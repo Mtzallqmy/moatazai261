@@ -1,33 +1,17 @@
-import type { AIProviderAdapter, ChatCompletionRequest, ChatCompletionResponse, ModelCapabilities, ProviderConfiguration, StreamingResponse } from "./types";
+import { authHeaders, buildUrl, normalizedError, parseSse, providerFetch } from "./http";
+import type { AIProviderAdapter, ModelCapabilities, ProviderConfiguration, ProviderHealth, ProviderModel, ProviderRequestContext, StreamingResponse, UnifiedChatRequest, UnifiedChatResponse } from "./types";
 import { ProviderError } from "./types";
 
-const textCapabilities: ModelCapabilities = { text:true, vision:false, audio:false, video:false, tools:true, jsonMode:true, streaming:true };
-
+const textCapabilities:ModelCapabilities={text:true,vision:false,audio:false,video:false,documents:false,tools:true,structuredOutput:true,embeddings:false,streaming:true};
+type OpenAIResponse={id?:string;model?:string;choices?:Array<{message?:{content?:string;tool_calls?:Array<{id:string;function:{name:string;arguments:string}}>};delta?:{content?:string};finish_reason?:string}>;usage?:{prompt_tokens?:number;completion_tokens?:number;total_tokens?:number};error?:{message?:string}};
 export class OpenAICompatibleAdapter implements AIProviderAdapter {
-  readonly type = "openai-compatible";
-  async validateConfiguration(configuration: ProviderConfiguration) {
-    if (!configuration.baseUrl || !configuration.apiKey) throw new ProviderError("Provider URL and API key are required", "INVALID_CONFIGURATION");
-    new URL(configuration.baseUrl);
-  }
-  async listModels(configuration: ProviderConfiguration) {
-    await this.validateConfiguration(configuration);
-    const response = await fetch(new URL("models", configuration.baseUrl!.endsWith("/") ? configuration.baseUrl : `${configuration.baseUrl}/`), { headers:{ Authorization:`Bearer ${configuration.apiKey}`, ...configuration.headers }, signal:AbortSignal.timeout(configuration.timeoutMs ?? 20_000) });
-    if (!response.ok) throw new ProviderError("Provider model discovery failed", "MODEL_DISCOVERY_FAILED", response.status >= 500, response.status);
-    const body = await response.json() as { data?: Array<{ id:string }> };
-    return (body.data ?? []).map(({id})=>({ id, capabilities:textCapabilities }));
-  }
-  async complete(configuration: ProviderConfiguration, request: ChatCompletionRequest): Promise<ChatCompletionResponse> {
-    await this.validateConfiguration(configuration);
-    const started = Date.now();
-    const response = await fetch(new URL("chat/completions", configuration.baseUrl!.endsWith("/") ? configuration.baseUrl : `${configuration.baseUrl}/`), { method:"POST", headers:{ "Content-Type":"application/json", Authorization:`Bearer ${configuration.apiKey}`, ...configuration.headers }, body:JSON.stringify({...request, max_tokens:request.maxTokens, stream:false}), signal:AbortSignal.timeout(configuration.timeoutMs ?? 90_000) });
-    const body = await response.json().catch(()=>null) as { id?:string; model?:string; choices?:Array<{message?:{content?:string};finish_reason?:string}>; usage?:{prompt_tokens?:number;completion_tokens?:number;total_tokens?:number}; error?:{message?:string} } | null;
-    if (!response.ok) throw new ProviderError(body?.error?.message ?? "Provider request failed", "PROVIDER_REQUEST_FAILED", response.status >= 500 || response.status === 429, response.status);
-    return { id:body?.id ?? crypto.randomUUID(), model:body?.model ?? request.model, content:body?.choices?.[0]?.message?.content ?? "", finishReason:body?.choices?.[0]?.finish_reason, usage:{ inputTokens:body?.usage?.prompt_tokens, outputTokens:body?.usage?.completion_tokens, totalTokens:body?.usage?.total_tokens, latencyMs:Date.now()-started } };
-  }
-  async *stream(configuration: ProviderConfiguration, request: ChatCompletionRequest): StreamingResponse {
-    const response = await this.complete(configuration, {...request, stream:false});
-    yield { type:"delta", content:response.content };
-    if (response.usage) yield { type:"usage", usage:response.usage };
-    yield { type:"done" };
-  }
+  readonly type:string="openai-compatible";
+  readonly capabilities={modelDiscovery:true,streaming:true,tools:true,vision:true,audio:false,video:false,documents:false,embeddings:true};
+  async validateConfiguration(c:ProviderConfiguration){if(!c.baseUrl)throw new ProviderError("Provider URL is required","INVALID_CONFIGURATION",false,422);try{new URL(c.baseUrl);}catch{throw new ProviderError("Provider URL is invalid","INVALID_CONFIGURATION",false,422);}if(!c.credential?.secret && c.credential?.authType!=="none")throw new ProviderError("Provider credential is required","INVALID_CONFIGURATION",false,422);}
+  async testConnection(c:ProviderConfiguration,x:ProviderRequestContext):Promise<ProviderHealth>{const started=Date.now();try{await this.listModels(c,{...x,timeoutMs:Math.min(x.timeoutMs??15000,15000)});return{ok:true,latencyMs:Date.now()-started,checkedAt:new Date().toISOString()};}catch(e){return{ok:false,latencyMs:Date.now()-started,checkedAt:new Date().toISOString(),errorCode:e instanceof ProviderError?e.code:"UNKNOWN"};}}
+  async listModels(c:ProviderConfiguration,x:ProviderRequestContext):Promise<ProviderModel[]>{await this.validateConfiguration(c);const r=await providerFetch(c,buildUrl(c.baseUrl,c.modelsEndpoint??"models"),{headers:authHeaders(c)},x);if(!r.ok)throw normalizedError(r.status,"Model discovery failed");const b=await r.json() as {data?:Array<{id:string}>};return(b.data??[]).map(v=>({id:v.id,capabilities:textCapabilities}));}
+  protected payload(r:UnifiedChatRequest,stream:boolean){return{model:r.model,messages:r.messages.map(m=>({role:m.role,content:m.content,name:m.name,tool_call_id:m.toolCallId})),temperature:r.temperature,max_tokens:r.maxOutputTokens,tools:r.tools?.map(t=>({type:"function",function:t})),response_format:r.responseFormat==="json"?{type:"json_object"}:undefined,stream};}
+  async complete(c:ProviderConfiguration,r:UnifiedChatRequest,x:ProviderRequestContext):Promise<UnifiedChatResponse>{await this.validateConfiguration(c);const started=Date.now();const response=await providerFetch(c,buildUrl(c.baseUrl,c.chatEndpoint??"chat/completions"),{method:"POST",headers:{"Content-Type":"application/json",...authHeaders(c)},body:JSON.stringify(this.payload(r,false))},x);const body=await response.json().catch(()=>null) as OpenAIResponse|null;if(!response.ok)throw normalizedError(response.status,body?.error?.message);const choice=body?.choices?.[0];if(!choice)throw new ProviderError("Provider returned an invalid response","INVALID_RESPONSE");return{id:body?.id??crypto.randomUUID(),model:body?.model??r.model,content:choice.message?.content??"",finishReason:choice.finish_reason,toolCalls:choice.message?.tool_calls?.map(t=>({id:t.id,name:t.function.name,arguments:safeJson(t.function.arguments)})),usage:{inputTokens:body?.usage?.prompt_tokens,outputTokens:body?.usage?.completion_tokens,totalTokens:body?.usage?.total_tokens},latency:{totalMs:Date.now()-started},providerRequestId:response.headers.get("x-request-id")??undefined};}
+  async *stream(c:ProviderConfiguration,r:UnifiedChatRequest,x:ProviderRequestContext):StreamingResponse{await this.validateConfiguration(c);yield{type:"start"};const response=await providerFetch(c,buildUrl(c.baseUrl,c.chatEndpoint??"chat/completions"),{method:"POST",headers:{"Content-Type":"application/json",...authHeaders(c)},body:JSON.stringify(this.payload(r,true))},x);if(!response.ok)throw normalizedError(response.status);for await(const delta of parseSse(response,(value)=>{const b=value as OpenAIResponse;return b.choices?.[0]?.delta?.content??null;}))yield{type:"delta",content:delta};yield{type:"done"};}
 }
+function safeJson(value:string):Record<string,unknown>{try{return JSON.parse(value) as Record<string,unknown>;}catch{return{raw:value};}}

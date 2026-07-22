@@ -3,7 +3,8 @@ import { createClient } from "@supabase/supabase-js";
 import { requireSupabasePublicEnv } from "@/config/env";
 import { ownerEmails, serverEnv } from "@/config/env.server";
 
-function adminClient(){if(!serverEnv.SUPABASE_SERVICE_ROLE_KEY)return null;const env=requireSupabasePublicEnv();return createClient(env.NEXT_PUBLIC_SUPABASE_URL,serverEnv.SUPABASE_SERVICE_ROLE_KEY,{auth:{persistSession:false,autoRefreshToken:false}});}
+export function createAdminClient(){if(!serverEnv.SUPABASE_SERVICE_ROLE_KEY)throw new Error("Supabase service role is not configured");const env=requireSupabasePublicEnv();return createClient(env.NEXT_PUBLIC_SUPABASE_URL,serverEnv.SUPABASE_SERVICE_ROLE_KEY,{auth:{persistSession:false,autoRefreshToken:false}});}
+function adminClient(){try{return createAdminClient();}catch{return null;}}
 export async function finalizeAuthenticatedUser(user:{id:string;email?:string|null;app_metadata?:{provider?:string}}){
   const admin=adminClient();if(!admin)return;
   const email=user.email?.trim().toLowerCase();

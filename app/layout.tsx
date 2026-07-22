@@ -1,4 +1,7 @@
 import type { Metadata } from "next";
+import { GeistSans } from "geist/font/sans";
+import { GeistMono } from "geist/font/mono";
+import "@fontsource-variable/noto-kufi-arabic";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -18,8 +21,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ar" dir="rtl" suppressHydrationWarning>
-      <body>{children}</body>
+    <html lang="ar" dir="rtl" className={`${GeistSans.variable} ${GeistMono.variable}`} suppressHydrationWarning>
+      <body className={GeistSans.className}>{children}</body>
     </html>
   );
 }
