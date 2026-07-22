@@ -10,4 +10,4 @@ test("new users receive profile settings and user role",()=>{assert.match(migrat
 test("API keys have no client policy",()=>{assert.doesNotMatch(migration,/create policy [^;]+ on public\.user_api_keys/i);});
 test("last owner is protected",()=>{assert.match(migration,/cannot_remove_last_owner/);});
 test("redirect helper rejects protocol-relative and backslash paths",()=>{assert.match(redirects,/startsWith\("\/\/"\)/);assert.match(redirects,/includes\("\\\\"\)/);});
-test("owner assignment is server-side and allowlisted",()=>{assert.match(ownerFlow,/server-only/);assert.match(ownerFlow,/ownerEmails\.has\(email\)/);assert.match(ownerFlow,/SUPABASE_SERVICE_ROLE_KEY/);});
+test("owner assignment is server-side and allowlisted",()=>{assert.match(ownerFlow,/server-only/);assert.match(ownerFlow,/ownerEmails\.has\(email\)/);assert.match(ownerFlow,/supabaseAdminKey/);});
