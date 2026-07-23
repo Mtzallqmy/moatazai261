@@ -3,7 +3,7 @@ import { z } from "zod";
 const publicSchema = z.object({
   NEXT_PUBLIC_SUPABASE_URL: z.url().optional(),
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: z.string().min(20).optional(),
-  NEXT_PUBLIC_SITE_URL: z.url().default("https://moatazai26.chatgpt.site"),
+  NEXT_PUBLIC_SITE_URL: z.url().default("https://moatazalalqami.online"),
 });
 
 export const publicEnv = publicSchema.parse({

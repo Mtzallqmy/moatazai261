@@ -12,6 +12,13 @@ Production-oriented foundation for an Arabic/English multi-provider AI and conte
 
 The service-role key, encryption keys, OAuth secrets, and provider keys are server-only. Never prefix them with `NEXT_PUBLIC_`.
 
+## Railway deployment
+
+Railway uses `npm run build:railway` and `npm run start:railway`; the existing
+Sites build remains unchanged. Connect the `main` branch, add the variables
+listed in `docs/railway-deployment.md`, and point the health check to
+`/api/v1/status`. Railway supplies `PORT` automatically.
+
 ## Quality gates
 
 `npm run lint`, `npm run typecheck`, `npm test`, and `npm run build` are required. GitHub Actions runs the same gates on pushes and pull requests.
