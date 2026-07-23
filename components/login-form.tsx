@@ -8,9 +8,26 @@ export function LoginForm({returnTo="/chat"}:{returnTo?:string}){
   const configured=Boolean(publicEnv.NEXT_PUBLIC_SUPABASE_URL&&publicEnv.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY);
   async function signIn(provider:"google"|"github"){
     setBusy(provider);setError(null);
-    try{const supabase=createSupabaseBrowserClient();const callback=new URL("/auth/callback",window.location.origin);callback.searchParams.set("next",returnTo);const {error}=await supabase.auth.signInWithOAuth({provider,options:{redirectTo:callback.toString()}});if(error)throw error;}catch(cause){setError(cause instanceof Error?cause.message:"تعذر بدء تسجيل الدخول");setBusy(null);}
+    try{
+      const supabase=createSupabaseBrowserClient();
+      const callback=new URL("/auth/callback",window.location.origin);
+      callback.searchParams.set("next",returnTo);
+      const {data,error}=await supabase.auth.signInWithOAuth({
+        provider,
+        options:{
+          redirectTo:callback.toString(),
+          ...(provider==="github"?{scopes:"read:user user:email"}:{}),
+        },
+      });
+      if(error)throw error;
+      if(!data.url)throw new Error("OAuth redirect URL is unavailable");
+      window.location.assign(data.url);
+    }catch(cause){
+      setError(cause instanceof Error?cause.message:"تعذر بدء تسجيل الدخول");
+      setBusy(null);
+    }
   }
   async function passwordLogin(event:React.FormEvent){event.preventDefault();setBusy("password");setError(null);try{const {error}=await createSupabaseBrowserClient().auth.signInWithPassword({email,password});if(error)throw error;window.location.assign(returnTo);}catch(cause){setError(cause instanceof Error?cause.message:"بيانات الدخول غير صحيحة");setBusy(null);}}
   const passwordEnabled=process.env.NEXT_PUBLIC_PASSWORD_AUTH_ENABLED==="true";
-  return <><div className="auth-actions"><button className="button" disabled={!configured||busy!==null} onClick={()=>void signIn("google")}>G&nbsp; المتابعة بواسطة Google</button><button className="button" disabled={!configured||busy!==null} onClick={()=>void signIn("github")}>◖◗&nbsp; المتابعة بواسطة GitHub</button></div>{passwordEnabled&&<form className="password-form" onSubmit={passwordLogin}><input type="email" required autoComplete="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="البريد الإلكتروني"/><input type="password" required minLength={8} autoComplete="current-password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="كلمة المرور"/><button className="button primary" disabled={busy!==null}>تسجيل الدخول</button><a href="/forgot-password">نسيت كلمة المرور؟</a></form>}{!configured&&<p className="notice">تسجيل الدخول غير مفعّل حتى تُضاف متغيرات Supabase الصحيحة إلى بيئة المشروع.</p>}{error&&<p className="notice" role="alert">تعذر تسجيل الدخول. تحقق من بياناتك أو حاول مرة أخرى.</p>}</>;
+  return <><div className="auth-actions"><button className="button oauth-button" disabled={!configured||busy!==null} onClick={()=>void signIn("google")}><span className="oauth-mark">G</span><span>{busy==="google"?"جارٍ التحويل…":"المتابعة بواسطة Google"}</span></button><button className="button oauth-button github" disabled={!configured||busy!==null} onClick={()=>void signIn("github")}><span className="oauth-mark">GH</span><span>{busy==="github"?"جارٍ التحويل…":"المتابعة بواسطة GitHub"}</span></button></div>{passwordEnabled&&<form className="password-form" onSubmit={passwordLogin}><input type="email" required autoComplete="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="البريد الإلكتروني"/><input type="password" required minLength={8} autoComplete="current-password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="كلمة المرور"/><button className="button primary" disabled={busy!==null}>تسجيل الدخول</button><a href="/forgot-password">نسيت كلمة المرور؟</a></form>}{!configured&&<p className="notice">تسجيل الدخول غير مفعّل حتى تُضاف متغيرات Supabase الصحيحة إلى بيئة المشروع.</p>}{error&&<p className="notice" role="alert">تعذر بدء تسجيل الدخول. أعد المحاولة، وإن استمرت المشكلة فتأكد من إعداد مزود GitHub.</p>}</>;
 }

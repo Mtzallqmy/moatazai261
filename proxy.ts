@@ -11,8 +11,10 @@ export async function proxy(request:NextRequest){
     const supabase=createSupabaseMiddlewareClient(request,response);
     const {data:{user}}=await supabase.auth.getUser();
     if((isProtected||isAdmin)&&!user)return NextResponse.redirect(new URL(`/login?returnTo=${encodeURIComponent(path)}`,request.url));
-    const role=typeof user?.app_metadata?.role==="string"?user.app_metadata.role:"user";
-    if(isAdmin&&!(["owner","admin"].includes(role)))return NextResponse.redirect(new URL("/chat",request.url));
+    if(isAdmin&&user){
+      const {data:allowed,error}=await supabase.rpc("has_permission",{permission_code:"admin.access",target_user:user.id});
+      if(error||!allowed)return NextResponse.redirect(new URL("/403",request.url));
+    }
   }catch{
     if(isProtected||isAdmin)return NextResponse.redirect(new URL("/login?error=auth_not_configured",request.url));
   }
