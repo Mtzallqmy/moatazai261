@@ -38,60 +38,89 @@ const summaryFields = "id,kind,slug,title_ar,title_en,excerpt_ar,excerpt_en,cove
 const detailFields = `${summaryFields},body_ar,body_en,seo_title_ar,seo_title_en,seo_description_ar,seo_description_en`;
 
 function createPublicContentClient() {
-  const env = requireSupabasePublicEnv();
-  return createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, {
-    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
-  });
+  try {
+    const env = requireSupabasePublicEnv();
+    return createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+    });
+  } catch {
+    console.error("Public content backend is not configured");
+    return null;
+  }
 }
 
 export async function listPublishedContent(kind: ContentKind, limit = 12): Promise<ContentSummary[]> {
-  const { data, error } = await createPublicContentClient()
-    .from("content_items")
-    .select(summaryFields)
-    .eq("kind", kind)
-    .eq("status", "published")
-    .lte("published_at", new Date().toISOString())
-    .order("featured", { ascending: false })
-    .order("published_at", { ascending: false })
-    .limit(Math.min(Math.max(limit, 1), 50));
+  const client = createPublicContentClient();
+  if (!client) return [];
 
-  if (error) {
-    console.error("Published content query failed", { code: error.code });
+  try {
+    const { data, error } = await client
+      .from("content_items")
+      .select(summaryFields)
+      .eq("kind", kind)
+      .eq("status", "published")
+      .lte("published_at", new Date().toISOString())
+      .order("featured", { ascending: false })
+      .order("published_at", { ascending: false })
+      .limit(Math.min(Math.max(limit, 1), 50));
+
+    if (error) {
+      console.error("Published content query failed", { code: error.code });
+      return [];
+    }
+    return (data ?? []) as unknown as ContentSummary[];
+  } catch {
+    console.error("Published content backend is temporarily unavailable");
     return [];
   }
-  return (data ?? []) as unknown as ContentSummary[];
 }
 
 export async function listFeaturedContent(limit = 3): Promise<ContentSummary[]> {
-  const { data, error } = await createPublicContentClient()
-    .from("content_items")
-    .select(summaryFields)
-    .eq("status", "published")
-    .eq("featured", true)
-    .lte("published_at", new Date().toISOString())
-    .order("published_at", { ascending: false })
-    .limit(Math.min(Math.max(limit, 1), 12));
+  const client = createPublicContentClient();
+  if (!client) return [];
 
-  if (error) {
-    console.error("Featured content query failed", { code: error.code });
+  try {
+    const { data, error } = await client
+      .from("content_items")
+      .select(summaryFields)
+      .eq("status", "published")
+      .eq("featured", true)
+      .lte("published_at", new Date().toISOString())
+      .order("published_at", { ascending: false })
+      .limit(Math.min(Math.max(limit, 1), 12));
+
+    if (error) {
+      console.error("Featured content query failed", { code: error.code });
+      return [];
+    }
+    return (data ?? []) as unknown as ContentSummary[];
+  } catch {
+    console.error("Featured content backend is temporarily unavailable");
     return [];
   }
-  return (data ?? []) as unknown as ContentSummary[];
 }
 
 export async function getPublishedContentBySlug(slug: string, kind?: ContentKind): Promise<ContentItem | null> {
-  let query = createPublicContentClient()
-    .from("content_items")
-    .select(detailFields)
-    .eq("slug", slug)
-    .eq("status", "published")
-    .lte("published_at", new Date().toISOString());
+  const client = createPublicContentClient();
+  if (!client) return null;
 
-  if (kind) query = query.eq("kind", kind);
-  const { data, error } = await query.maybeSingle();
-  if (error) {
-    console.error("Content detail query failed", { code: error.code });
+  try {
+    let query = client
+      .from("content_items")
+      .select(detailFields)
+      .eq("slug", slug)
+      .eq("status", "published")
+      .lte("published_at", new Date().toISOString());
+
+    if (kind) query = query.eq("kind", kind);
+    const { data, error } = await query.maybeSingle();
+    if (error) {
+      console.error("Content detail query failed", { code: error.code });
+      return null;
+    }
+    return data as unknown as ContentItem | null;
+  } catch {
+    console.error("Content detail backend is temporarily unavailable");
     return null;
   }
-  return data as unknown as ContentItem | null;
 }
