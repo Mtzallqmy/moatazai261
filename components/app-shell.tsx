@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 const userLinks = [["/chat","الدردشة"],["/account","الحساب"],["/account/files","ملفاتي"],["/account/settings","الإعدادات"]];
-const adminLinks = [["/admin","نظرة عامة"],["/admin/users","المستخدمون"],["/admin/roles","الأدوار والصلاحيات"],["/admin/providers","المزودات"],["/admin/models","النماذج"],["/admin/content","المحتوى"],["/admin/categories","التصنيفات"],["/admin/media","الوسائط"],["/admin/schedules","الجدولة"],["/admin/integrations","التكاملات"],["/admin/settings","الإعدادات"],["/admin/logs","السجلات"]];
+const adminLinks = [["/admin","نظرة عامة"],["/admin/users","المستخدمون"],["/admin/roles","الأدوار والصلاحيات"],["/admin/providers","المزودات"],["/admin/models","النماذج"],["/admin/content","المحتوى"],["/admin/contact","رسائل التواصل"],["/admin/categories","التصنيفات"],["/admin/media","الوسائط"],["/admin/schedules","الجدولة"],["/admin/integrations","التكاملات"],["/admin/settings","الإعدادات"],["/admin/logs","السجلات"]];
 
 export function AppShell({ admin=false, title, children }: { admin?: boolean; title: string; children: React.ReactNode }) {
   const links = admin ? adminLinks : userLinks;
