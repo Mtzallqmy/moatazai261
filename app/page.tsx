@@ -1,24 +1,30 @@
 import { FeatureCard } from "@/components/feature-card";
+import { FeaturedContent } from "@/components/featured-content";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
+import { listFeaturedContent } from "@/lib/content";
 
-export default function Home() {
+export const revalidate = 60;
+
+export default async function Home() {
+  const featured = await listFeaturedContent(3);
   return (
     <div className="site-page">
       <SiteHeader />
       <main>
         <section className="hero shell">
-          <span className="eyebrow">المرحلة الأولى — أساس إنتاجي قابل للتوسع</span>
-          <h1>ذكاء اصطناعي متعدد المزودات، <em>في مساحة واحدة.</em></h1>
-          <p>دردشة خاصة، إدارة مزودات مرنة، ومحتوى عربي وإنجليزي ضمن معمارية مصممة للنمو بأمان.</p>
-          <div className="actions"><a className="button primary" href="/login">ابدأ الآن</a><a className="button secondary" href="/about">اكتشف المنصة</a></div>
-          <div className="status-line"><span>بنية API موحدة</span><span>صلاحيات محمية</span><span>لا مفاتيح في المتصفح</span></div>
+          <span className="eyebrow">منصة عربية للذكاء الاصطناعي والمعرفة</span>
+          <h1>أدوات ذكية ومحتوى عملي، <em>في مساحة واحدة.</em></h1>
+          <p>استخدم نماذج الذكاء الاصطناعي من خلال بنية متعددة المزودات، واقرأ محتوى عربيًا متخصصًا في التقنية والبرمجة والصيدلة والأتمتة.</p>
+          <div className="actions"><a className="button primary" href="/login">الدخول إلى المنصة</a><a className="button secondary" href="/articles">استكشف المحتوى</a></div>
+          <div className="status-line"><span>صلاحيات دقيقة</span><span>مفاتيح محمية خادميًا</span><span>محتوى مرتبط بقاعدة البيانات</span></div>
         </section>
         <section className="shell feature-grid" aria-label="قدرات المنصة">
-          <FeatureCard icon="✦" title="دردشة متعددة المزودات" description="طبقة موحدة تفصل تجربة الدردشة عن أي شركة أو نموذج بعينه." status="مفعلة تدريجيًا" />
-          <FeatureCard icon="▤" title="محتوى احترافي" description="أساس للمقالات والمنشورات والكتب مع تصنيفات ووسوم ونشر منظم." status="الأساس جاهز" />
-          <FeatureCard icon="⌾" title="إدارة آمنة" description="صلاحيات واضحة، سجل تدقيق، تحقق من المدخلات ورؤوس حماية افتراضية." status="محمي افتراضيًا" />
+          <FeatureCard icon="✦" title="دردشة متعددة المزودات" description="طبقة موحدة تتيح إضافة المزودات والنماذج واختبارها وإدارتها من لوحة التحكم." status="جاهزة عند إضافة مزود" />
+          <FeatureCard icon="▤" title="نظام محتوى فعلي" description="مقالات ومنشورات وملخصات كتب بتصنيفات، مراجعات، نشر منظم وبيانات SEO." status="مفعّل" />
+          <FeatureCard icon="⌾" title="إدارة وأمان" description="صلاحيات حسب الدور، سجل تدقيق، حماية للجلسات، وواجهات خادمية للبيانات الحساسة." status="محمي" />
         </section>
+        <FeaturedContent items={featured} />
       </main>
       <SiteFooter />
     </div>
