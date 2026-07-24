@@ -1,1 +1,11 @@
-import { AdminSection } from "@/components/admin-section"; export default function Page(){return <AdminSection title="إدارة المحتوى" description="المحرر الذكي غير مفعّل في المرحلة الأولى." flag="CONTENT_EDITOR_ENABLED = false"/>;}
+import { ContentManager } from "@/components/content-manager";
+
+export default function ContentAdminPage() {
+  return (
+    <section className="page-section">
+      <h1>إدارة المحتوى</h1>
+      <p>إنشاء المقالات والمنشورات وملخصات الكتب، ثم مراجعتها ونشرها أو أرشفتها.</p>
+      <ContentManager />
+    </section>
+  );
+}

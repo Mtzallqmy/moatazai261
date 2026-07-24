@@ -16,6 +16,24 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm run lint
+      - name: Run lint
+        id: lint
+        run: npm run lint -- --format json > lint-report.json
+      - name: Upload lint report
+        if: failure() && steps.lint.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: lint-report
+          path: lint-report.json
+          retention-days: 1
       - run: npm run typecheck
-      - run: npm test
+      - name: Run tests
+        id: tests
+        run: npm test > test-report.txt 2>&1
+      - name: Upload test report
+        if: failure() && steps.tests.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-report
+          path: test-report.txt
+          retention-days: 1
