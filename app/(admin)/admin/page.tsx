@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getSupabaseServerClient, requirePermission } from "@/lib/auth/guards";
+import { getAuthProviderStatus } from "@/services/auth-provider-status";
 
 type HealthStatus="healthy"|"degraded"|"unavailable"|"unknown";
 
@@ -10,7 +11,7 @@ function healthLabel(value:HealthStatus){return({healthy:"سليم",degraded:"م
 export default async function AdminPage(){
   await requirePermission("admin.access");
   const supabase=await getSupabaseServerClient();
-  const [users,providers,models,conversations,files,recentProviders,recentLogs]=await Promise.all([
+  const [users,providers,models,conversations,files,recentProviders,recentLogs,authProviders]=await Promise.all([
     supabase.from("profiles").select("id",{count:"exact",head:true}),
     supabase.from("ai_providers").select("id",{count:"exact",head:true}),
     supabase.from("ai_models").select("id",{count:"exact",head:true}),
@@ -18,6 +19,7 @@ export default async function AdminPage(){
     supabase.from("files").select("id",{count:"exact",head:true}),
     supabase.from("ai_providers").select("id,name,provider_type,enabled,health_status,last_health_check_at,last_latency_ms").order("updated_at",{ascending:false}).limit(5),
     supabase.from("audit_logs").select("id,action,resource_type,created_at").order("created_at",{ascending:false}).limit(6),
+    getAuthProviderStatus(),
   ]);
   const connected=!users.error&&!providers.error&&!models.error;
   const metrics=[
@@ -48,6 +50,15 @@ export default async function AdminPage(){
     <section className="quick-actions">
       <div><span className="panel-kicker">QUICK ACTIONS</span><h3>وصول سريع</h3></div>
       <nav><Link href="/admin/providers">إضافة مزود <span>←</span></Link><Link href="/admin/models">إدارة النماذج <span>←</span></Link><Link href="/admin/users">إدارة المستخدمين <span>←</span></Link><Link href="/admin/settings">إعدادات المنصة <span>←</span></Link></nav>
+    </section>
+    <section className="auth-health-panel">
+      <div><span className="panel-kicker">IDENTITY STATUS</span><h3>تسجيل الدخول</h3><p>فحص حي لإعدادات المصادقة التي تستخدمها واجهة الموقع.</p></div>
+      <div className="auth-provider-grid">
+        <div><span className={`status-dot ${authProviders.github?"enabled":"disabled"}`}/><b>GitHub</b><small>{authProviders.github?"مفعّل":"غير مفعّل"}</small></div>
+        <div><span className={`status-dot ${authProviders.google?"enabled":"disabled"}`}/><b>Google</b><small>{authProviders.google?"مفعّل":"غير مفعّل"}</small></div>
+        <div><span className={`status-dot ${authProviders.signupEnabled?"enabled":"disabled"}`}/><b>التسجيل</b><small>{authProviders.signupEnabled?"مسموح":"متوقف"}</small></div>
+        <div><span className={`status-dot ${authProviders.available?"enabled":"disabled"}`}/><b>خدمة الهوية</b><small>{authProviders.available?"متصلة":"تعذر الفحص"}</small></div>
+      </div>
     </section>
   </div>
 }
