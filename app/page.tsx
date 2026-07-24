@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { FeatureCard } from "@/components/feature-card";
 import { FeaturedContent } from "@/components/featured-content";
 import { SiteFooter } from "@/components/site-footer";
@@ -16,7 +17,7 @@ export default async function Home() {
           <span className="eyebrow">منصة عربية للذكاء الاصطناعي والمعرفة</span>
           <h1>أدوات ذكية ومحتوى عملي، <em>في مساحة واحدة.</em></h1>
           <p>استخدم نماذج الذكاء الاصطناعي من خلال بنية متعددة المزودات، واقرأ محتوى عربيًا متخصصًا في التقنية والبرمجة والصيدلة والأتمتة.</p>
-          <div className="actions"><a className="button primary" href="/login">الدخول إلى المنصة</a><a className="button secondary" href="/articles">استكشف المحتوى</a></div>
+          <div className="actions"><Link className="button primary" href="/login">الدخول إلى المنصة</Link><Link className="button secondary" href="/articles">استكشف المحتوى</Link></div>
           <div className="status-line"><span>صلاحيات دقيقة</span><span>مفاتيح محمية خادميًا</span><span>محتوى مرتبط بقاعدة البيانات</span></div>
         </section>
         <section className="shell feature-grid" aria-label="قدرات المنصة">
