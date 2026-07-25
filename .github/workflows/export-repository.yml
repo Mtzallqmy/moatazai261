@@ -1,0 +1,32 @@
+name: Export repository
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Create source archive
+        run: |
+          mkdir -p /tmp/export
+          rsync -a --exclude='.git/' ./ /tmp/export/
+
+      - name: Upload source archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: moatazai261-source
+          path: /tmp/export
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 1
