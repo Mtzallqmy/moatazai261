@@ -11,12 +11,16 @@ function healthLabel(value:HealthStatus){return({healthy:"سليم",degraded:"م
 export default async function AdminPage(){
   await requirePermission("admin.access");
   const supabase=await getSupabaseServerClient();
-  const [users,providers,models,conversations,files,recentProviders,recentLogs,authProviders]=await Promise.all([
+  const [users,providers,models,conversations,files,agents,jobs,knowledgeBases,usage,recentProviders,recentLogs,authProviders]=await Promise.all([
     supabase.from("profiles").select("id",{count:"exact",head:true}),
     supabase.from("ai_providers").select("id",{count:"exact",head:true}),
     supabase.from("ai_models").select("id",{count:"exact",head:true}),
     supabase.from("conversations").select("id",{count:"exact",head:true}),
     supabase.from("files").select("id",{count:"exact",head:true}),
+    supabase.from("agents").select("id",{count:"exact",head:true}),
+    supabase.from("background_jobs").select("id",{count:"exact",head:true}).in("status",["queued","running","retrying"]),
+    supabase.from("knowledge_bases").select("id",{count:"exact",head:true}),
+    supabase.from("provider_usage_records").select("id",{count:"exact",head:true}),
     supabase.from("ai_providers").select("id,name,provider_type,enabled,health_status,last_health_check_at,last_latency_ms").order("updated_at",{ascending:false}).limit(5),
     supabase.from("audit_logs").select("id,action,resource_type,created_at").order("created_at",{ascending:false}).limit(6),
     getAuthProviderStatus(),
@@ -29,6 +33,13 @@ export default async function AdminPage(){
     {label:"المحادثات",value:number(conversations.count),hint:"محادثة محفوظة",href:"/chat",tone:"amber"},
     {label:"الملفات",value:number(files.count),hint:"ملف في المكتبة",href:"/admin/media",tone:"rose"},
   ];
+  const readiness=[
+    {label:"الاتصال بقاعدة البيانات",ready:connected,href:"/admin/health"},
+    {label:"تسجيل الدخول الخارجي",ready:authProviders.github||authProviders.google,href:"/admin/settings"},
+    {label:"مزود ذكاء اصطناعي",ready:(providers.count??0)>0,href:"/admin/providers"},
+    {label:"نموذج متاح للمستخدمين",ready:(models.count??0)>0,href:"/admin/models"},
+  ];
+  const readinessScore=Math.round(readiness.filter(item=>item.ready).length/readiness.length*100);
   return <div className="dashboard">
     <section className="dashboard-hero">
       <div><span className="dashboard-kicker">مرصد المنصة</span><h2>لوحة القيادة</h2><p>صورة مباشرة عن المستخدمين والمزودات والنماذج ونشاط النظام.</p></div>
@@ -36,6 +47,22 @@ export default async function AdminPage(){
     </section>
     <section className="metric-grid" aria-label="مؤشرات المنصة">
       {metrics.map((metric,index)=><Link href={metric.href} className={`metric-card ${metric.tone}`} key={metric.label}><div className="metric-top"><span>{metric.label}</span><b>{String(index+1).padStart(2,"0")}</b></div><strong>{metric.value}</strong><small>{metric.hint}</small><i aria-hidden="true">↗</i></Link>)}
+    </section>
+    <section className="operations-overview">
+      <article className="readiness-card">
+        <header><div><span className="panel-kicker">LAUNCH READINESS</span><h3>جاهزية التشغيل</h3></div><strong>{readinessScore}%</strong></header>
+        <div className="readiness-track"><i style={{width:`${readinessScore}%`}} /></div>
+        <div className="readiness-list">{readiness.map(item=><Link href={item.href} key={item.label}><span className={item.ready?"ready":"pending"}>{item.ready?"✓":"!"}</span><b>{item.label}</b><small>{item.ready?"جاهز":"يتطلب إعدادًا"}</small></Link>)}</div>
+      </article>
+      <article className="operations-card">
+        <header><span className="panel-kicker">OPERATIONS</span><h3>التشغيل الفعلي</h3><p>مؤشرات حقيقية من الخدمات الخلفية، دون بيانات تجريبية.</p></header>
+        <div className="operations-grid">
+          <Link href="/admin/agents"><strong>{number(agents.count)}</strong><span>وكيل</span></Link>
+          <Link href="/admin/jobs"><strong>{number(jobs.count)}</strong><span>مهمة نشطة</span></Link>
+          <Link href="/admin/rag-diagnostics"><strong>{number(knowledgeBases.count)}</strong><span>قاعدة معرفة</span></Link>
+          <Link href="/admin/health"><strong>{number(usage.count)}</strong><span>طلب مسجل</span></Link>
+        </div>
+      </article>
     </section>
     <section className="dashboard-columns">
       <article className="dashboard-panel">

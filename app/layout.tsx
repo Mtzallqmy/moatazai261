@@ -4,6 +4,7 @@ import { GeistMono } from "geist/font/mono";
 import "@fontsource-variable/noto-kufi-arabic";
 import "./globals.css";
 import "./production.css";
+import "./design-system.css";
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "https://moatazalalqami.online"),
@@ -27,6 +28,14 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="ar" dir="rtl" className={`${GeistSans.variable} ${GeistMono.variable}`} suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "try{var t=localStorage.getItem('moataz-theme');if(t==='light'||t==='dark'||t==='comfort'){document.documentElement.dataset.theme=t;document.documentElement.style.colorScheme=t==='light'?'light':'dark'}}catch(e){}",
+          }}
+        />
+      </head>
       <body className={GeistSans.className}>{children}</body>
     </html>
   );

@@ -1,4 +1,44 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ProviderError } from "@/providers/types";
-export async function assertWithinQuota(userId:string,modelId:string){const admin=createAdminClient();const now=new Date();const day=new Date(now);day.setUTCHours(0,0,0,0);const month=new Date(Date.UTC(now.getUTCFullYear(),now.getUTCMonth(),1));const [{data:limits},{data:daily},{data:monthly}]=await Promise.all([admin.from("usage_limits").select("daily_request_limit,monthly_request_limit,daily_token_limit,monthly_token_limit,daily_cost_limit,monthly_cost_limit").eq("enabled",true).in("scope_type",["platform","user"]).or(`scope_id.eq.platform,scope_id.eq.${userId}`).or(`model_id.is.null,model_id.eq.${modelId}`),admin.from("provider_usage_records").select("request_count,total_tokens,estimated_cost").eq("user_id",userId).gte("created_at",day.toISOString()),admin.from("provider_usage_records").select("request_count,total_tokens,estimated_cost").eq("user_id",userId).gte("created_at",month.toISOString())]);const sum=(rows:typeof daily)=>({requests:(rows??[]).reduce((n,v)=>n+(v.request_count??0),0),tokens:(rows??[]).reduce((n,v)=>n+(v.total_tokens??0),0),cost:(rows??[]).reduce((n,v)=>n+Number(v.estimated_cost??0),0)});const d=sum(daily),m=sum(monthly);for(const l of limits??[]){if((l.daily_request_limit!=null&&d.requests>=l.daily_request_limit)||(l.monthly_request_limit!=null&&m.requests>=l.monthly_request_limit)||(l.daily_token_limit!=null&&d.tokens>=l.daily_token_limit)||(l.monthly_token_limit!=null&&m.tokens>=l.monthly_token_limit)||(l.daily_cost_limit!=null&&d.cost>=Number(l.daily_cost_limit))||(l.monthly_cost_limit!=null&&m.cost>=Number(l.monthly_cost_limit)))throw new ProviderError("Usage limit reached","RATE_LIMITED",false,429);}}
+
+export async function reserveUsage(input: {
+  userId: string;
+  modelId: string;
+  providerId: string;
+  idempotencyKey: string;
+  reservedTokens?: number;
+  reservedCost?: number;
+}) {
+  const { data, error } = await createAdminClient().rpc("reserve_usage", {
+    p_user_id: input.userId,
+    p_model_id: input.modelId,
+    p_provider_id: input.providerId,
+    p_idempotency_key: input.idempotencyKey,
+    p_reserved_tokens: input.reservedTokens ?? 0,
+    p_reserved_cost: input.reservedCost ?? 0,
+  });
+  if (error) {
+    if (error.message.includes("USAGE_LIMIT_REACHED")) {
+      throw new ProviderError("Usage limit reached", "RATE_LIMITED", false, 429);
+    }
+    throw new ProviderError("Could not reserve usage", "PROVIDER_UNAVAILABLE", true, 503);
+  }
+  return String(data);
+}
+
+export async function finalizeUsage(
+  reservationId: string,
+  actualTokens: number,
+  actualCost: number,
+  release = false,
+) {
+  const { data, error } = await createAdminClient().rpc("finalize_usage_reservation", {
+    p_reservation_id: reservationId,
+    p_actual_tokens: Math.max(0, actualTokens),
+    p_actual_cost: Math.max(0, actualCost),
+    p_release: release,
+  });
+  if (error) throw new Error("Could not finalize usage reservation");
+  return Boolean(data);
+}

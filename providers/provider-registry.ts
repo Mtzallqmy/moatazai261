@@ -17,4 +17,5 @@ export const providerRegistry=new ProviderRegistry()
  .register(new NamedOpenAIAdapter("openrouter")).register(new NamedOpenAIAdapter("groq"))
  .register(new NamedOpenAIAdapter("mistral")).register(new NamedOpenAIAdapter("deepseek"))
  .register(new NamedOpenAIAdapter("xai")).register(new NamedOpenAIAdapter("azure-openai"))
+ .register(new NamedOpenAIAdapter("ollama"))
  .register(new BedrockAdapter());

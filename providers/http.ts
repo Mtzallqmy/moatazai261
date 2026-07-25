@@ -1,4 +1,5 @@
 import { ProviderError, type ProviderConfiguration, type ProviderRequestContext } from "./types";
+import { assertSafeOutboundUrl } from "@/lib/security/provider-url";
 
 const retryableStatus = new Set([408, 409, 425, 429, 500, 502, 503, 504]);
 export function buildUrl(baseUrl: string, endpoint: string) { return new URL(endpoint.replace(/^\//, ""), baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`); }
@@ -11,12 +12,17 @@ export function authHeaders(configuration: ProviderConfiguration) {
   return { ...configuration.headers, Authorization:`Bearer ${credential.secret}` };
 }
 export async function providerFetch(configuration: ProviderConfiguration, input: URL, init: RequestInit, context: ProviderRequestContext) {
+  const outbound = new URL(input);
+  if (configuration.credential?.authType === "query") {
+    outbound.searchParams.set(configuration.credential.queryName ?? "key", configuration.credential.secret);
+  }
+  const safeInput = await assertSafeOutboundUrl(outbound.toString());
   const attempts=(configuration.retryCount ?? 2)+1;
   for(let attempt=1;attempt<=attempts;attempt++){
     const timeout=AbortSignal.timeout(context.timeoutMs ?? configuration.timeoutMs ?? 90_000);
     const signal=context.signal ? AbortSignal.any([context.signal,timeout]) : timeout;
     try {
-      const response=await fetch(input,{...init,signal});
+      const response=await fetch(safeInput,{...init,redirect:"error",signal});
       if(response.ok || !retryableStatus.has(response.status) || attempt===attempts) return response;
     } catch(error) {
       if(context.signal?.aborted) throw new ProviderError("Request cancelled","ABORTED",false,499);

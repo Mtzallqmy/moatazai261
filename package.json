@@ -15,7 +15,7 @@
     "start:container": "next start -H 0.0.0.0 -p ${PORT:-3000}",
     "start:railway": "npm run start:container",
     "test": "npm run build && npm run test:unit",
-    "test:unit": "node --import tsx --test tests/*.test.mjs tests/*.test.ts",
+    "test:unit": "NODE_ENV=test node --import tsx --test tests/*.test.mjs tests/*.test.ts",
     "typecheck": "tsc --noEmit",
     "check": "npm run lint && npm run typecheck && npm test",
     "validate:artifact": "bash scripts/validate-artifact.sh",

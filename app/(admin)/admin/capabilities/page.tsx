@@ -1,0 +1,5 @@
+import { requirePermission } from "@/lib/auth/guards";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { capabilityMatrix } from "@/services/capability-matrix-service";
+import { modelCapabilities } from "@/services/model-capability-service";
+export default async function Page(){await requirePermission("models.manage");const{data}=await createAdminClient().from("ai_models").select("id,display_name,capabilities,context_window,ai_providers(name)").order("display_name");return <section><h1>مصفوفة القدرات</h1><p>لا يرسل الخادم ميزة إلى نموذج لا يدعمها.</p><div className="data-table">{(data??[]).map(model=>{const matrix=capabilityMatrix(modelCapabilities({...model.capabilities as object,contextWindow:model.context_window}));return <div className="table-row" key={model.id}><span>{model.display_name}<small>{(model.ai_providers as unknown as {name:string})?.name}</small></span><span>Streaming {matrix.streaming?"✓":"—"} · Tools {matrix.toolCalling?"✓":"—"}</span><span>Vision {matrix.vision?"✓":"—"} · Audio {matrix.audio?"✓":"—"}</span><span>JSON {matrix.jsonMode?"✓":"—"} · Embeddings {matrix.embeddings?"✓":"—"}</span></div>})}</div></section>;}

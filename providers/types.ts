@@ -1,5 +1,5 @@
 export type ChatRole = "system" | "user" | "assistant" | "tool";
-export type ProviderErrorCode = "INVALID_CONFIGURATION" | "AUTHENTICATION_FAILED" | "RATE_LIMITED" | "TIMEOUT" | "ABORTED" | "MODEL_NOT_FOUND" | "MODEL_UNAVAILABLE" | "CAPABILITY_UNSUPPORTED" | "CONTENT_FILTERED" | "PROVIDER_UNAVAILABLE" | "INVALID_RESPONSE" | "NETWORK_ERROR" | "UNKNOWN";
+export type ProviderErrorCode = "INVALID_CONFIGURATION" | "INVALID_REQUEST" | "AUTHENTICATION_FAILED" | "PERMISSION_ERROR" | "RATE_LIMITED" | "QUOTA_EXCEEDED" | "TIMEOUT" | "ABORTED" | "MODEL_NOT_FOUND" | "MODEL_UNAVAILABLE" | "CAPABILITY_UNSUPPORTED" | "CONTENT_FILTERED" | "PROVIDER_UNAVAILABLE" | "INVALID_RESPONSE" | "STREAM_INTERRUPTED" | "TOOL_EXECUTION_FAILED" | "FILE_PROCESSING_FAILED" | "NETWORK_ERROR" | "UNKNOWN";
 
 export type TextContentPart = { type: "text"; text: string };
 export type ImageContentPart = { type: "image"; url: string; mimeType?: string; detail?: "auto" | "low" | "high" };
@@ -11,10 +11,10 @@ export type UnifiedContentPart = TextContentPart | ImageContentPart | AudioConte
 export type ToolCall = { id: string; name: string; arguments: Record<string, unknown> };
 export type UnifiedChatMessage = { id?: string; role: ChatRole; content: string | UnifiedContentPart[]; name?: string; toolCallId?: string; toolCalls?: ToolCall[] };
 
-export type ModelCapabilities = { text: boolean; vision: boolean; audio: boolean; video: boolean; documents: boolean; tools: boolean; structuredOutput: boolean; embeddings: boolean; streaming: boolean; contextWindow?: number; maxOutputTokens?: number };
-export type ProviderCapabilities = { modelDiscovery: boolean; streaming: boolean; tools: boolean; vision: boolean; audio: boolean; video: boolean; documents: boolean; embeddings: boolean };
-export type ProviderCredential = { id?: string; secret: string; authType?: "bearer" | "api_key_header" | "query" | "basic" | "custom_headers" | "none"; headerName?: string; queryName?: string; username?: string; customHeaders?: Record<string, string> };
-export type ProviderConfiguration = { id: string; type: string; name: string; baseUrl: string; chatEndpoint?: string; modelsEndpoint?: string; apiVersion?: string; enabled: boolean; timeoutMs?: number; retryCount?: number; headers?: Record<string,string>; credential?: ProviderCredential; defaultModel?: string };
+export type ModelCapabilities = { text: boolean; vision: boolean; audio: boolean; video: boolean; documents: boolean; tools: boolean; structuredOutput: boolean; embeddings: boolean; streaming: boolean; responsesApi?: boolean; jsonMode?: boolean; imageGeneration?: boolean; transcription?: boolean; speech?: boolean; reranking?: boolean; contextWindow?: number; maxOutputTokens?: number };
+export type ProviderCapabilities = { modelDiscovery: boolean; streaming: boolean; tools: boolean; vision: boolean; audio: boolean; video: boolean; documents: boolean; embeddings: boolean; responsesApi?: boolean; structuredOutput?: boolean; imageGeneration?: boolean; transcription?: boolean; speech?: boolean; reranking?: boolean };
+export type ProviderCredential = { id?: string; secret: string; source?: "user" | "organization" | "platform" | "fallback"; authType?: "bearer" | "api_key_header" | "query" | "basic" | "custom_headers" | "none"; headerName?: string; queryName?: string; username?: string; customHeaders?: Record<string, string> };
+export type ProviderConfiguration = { id: string; type: string; name: string; baseUrl: string; chatEndpoint?: string; modelsEndpoint?: string; embeddingsEndpoint?: string; apiVersion?: string; enabled: boolean; timeoutMs?: number; retryCount?: number; headers?: Record<string,string>; credential?: ProviderCredential; defaultModel?: string };
 export type ProviderRequestContext = { requestId: string; userId?: string; signal?: AbortSignal; timeoutMs?: number; attempt?: number };
 export type ProviderUsage = { inputTokens?: number; outputTokens?: number; totalTokens?: number; cachedTokens?: number };
 export type ProviderLatency = { totalMs: number; firstTokenMs?: number };
@@ -24,6 +24,16 @@ export type StreamingEvent = { type: "start" | "delta" | "tool-call" | "usage" |
 export type StreamingResponse = AsyncIterable<StreamingEvent>;
 export type ProviderModel = { id: string; name?: string; capabilities: ModelCapabilities };
 export type ProviderHealth = { ok: boolean; latencyMs: number; checkedAt: string; errorCode?: ProviderErrorCode };
+export type EmbeddingRequest = { model: string; inputs: string[]; dimensions?: number };
+export type EmbeddingResponse = { model: string; embeddings: number[][]; usage?: ProviderUsage };
+export type ImageGenerationRequest = { model: string; prompt: string; size?: string; count?: number };
+export type ImageGenerationResponse = { images: Array<{ url?: string; base64?: string; mimeType?: string }>; usage?: ProviderUsage };
+export type AudioTranscriptionRequest = { model: string; audio: Uint8Array; mimeType: string; language?: string };
+export type AudioTranscriptionResponse = { text: string; language?: string; durationSeconds?: number; usage?: ProviderUsage };
+export type SpeechRequest = { model: string; text: string; voice?: string; format?: string };
+export type SpeechResponse = { audio: Uint8Array; mimeType: string; usage?: ProviderUsage };
+export type RerankRequest = { model: string; query: string; documents: string[]; topK?: number };
+export type RerankResponse = { results: Array<{ index: number; score: number }>; usage?: ProviderUsage };
 
 export class ProviderError extends Error {
   readonly errorId = crypto.randomUUID();
@@ -38,6 +48,11 @@ export interface AIProviderAdapter {
   listModels(configuration: ProviderConfiguration, context: ProviderRequestContext): Promise<ProviderModel[]>;
   complete(configuration: ProviderConfiguration, request: UnifiedChatRequest, context: ProviderRequestContext): Promise<UnifiedChatResponse>;
   stream(configuration: ProviderConfiguration, request: UnifiedChatRequest, context: ProviderRequestContext): StreamingResponse;
+  embed?(configuration: ProviderConfiguration, request: EmbeddingRequest, context: ProviderRequestContext): Promise<EmbeddingResponse>;
+  generateImage?(configuration: ProviderConfiguration, request: ImageGenerationRequest, context: ProviderRequestContext): Promise<ImageGenerationResponse>;
+  transcribe?(configuration: ProviderConfiguration, request: AudioTranscriptionRequest, context: ProviderRequestContext): Promise<AudioTranscriptionResponse>;
+  speak?(configuration: ProviderConfiguration, request: SpeechRequest, context: ProviderRequestContext): Promise<SpeechResponse>;
+  rerank?(configuration: ProviderConfiguration, request: RerankRequest, context: ProviderRequestContext): Promise<RerankResponse>;
 }
 
 // Compatibility aliases for stage-one consumers.
