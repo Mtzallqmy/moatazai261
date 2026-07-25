@@ -41,10 +41,12 @@ export async function resolveProviderCredential(
   }
 
   const { data, error } = await admin.from("ai_provider_credentials")
-    .select("id,encrypted_secret,auth_metadata,status,expires_at,usage_limit,usage_count")
+    .select("id,encrypted_secret,auth_metadata,status,is_default,expires_at,usage_limit,usage_count")
     .eq("provider_id", providerId).eq("status", "active")
     .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
-    .order("priority").limit(10);
+    .order("is_default", { ascending: false })
+    .order("priority", { ascending: true })
+    .limit(10);
   if (error) throw new Error("Credential lookup failed");
   const item = data?.find((credential) => credential.usage_limit == null || credential.usage_count < credential.usage_limit);
   if (!item) throw new Error("No active provider credential");

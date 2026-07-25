@@ -2,9 +2,9 @@ import Link from "next/link";
 import { AppearanceControls } from "@/components/appearance-controls";
 
 const userLinks = [["/chat","الدردشة"],["/account","الحساب"],["/account/files","ملفاتي"],["/account/api-keys","مفاتيحي"],["/account/memory","ذاكرتي"],["/account/settings","الإعدادات"]];
-const adminLinks = [["/admin","نظرة عامة"],["/admin/health","صحة المنصة"],["/admin/users","المستخدمون"],["/admin/roles","الأدوار والصلاحيات"],["/admin/providers","المزودات"],["/admin/models","النماذج"],["/admin/capabilities","قدرات النماذج"],["/admin/agents","الوكلاء"],["/admin/mcp","خوادم MCP"],["/admin/rag-diagnostics","تشخيص RAG"],["/admin/jobs","المهام الخلفية"],["/admin/content","المحتوى"],["/admin/contact","رسائل التواصل"],["/admin/categories","التصنيفات"],["/admin/media","الوسائط"],["/admin/schedules","الجدولة"],["/admin/integrations","التكاملات"],["/admin/settings","الإعدادات"],["/admin/logs","السجلات"]];
+const adminLinks = [["/admin","نظرة عامة"],["/admin/health","صحة المنصة"],["/admin/users","المستخدمون"],["/admin/roles","الأدوار والصلاحيات"],["/admin/providers","المزودات"],["/admin/models","النماذج"],["/admin/capabilities","قدرات النماذج"],["/admin/agents","الوكلاء"],["/admin/tools","الأدوات"],["/admin/mcp","خوادم MCP"],["/admin/knowledge-bases","قواعد المعرفة"],["/admin/rag-diagnostics","تشخيص RAG"],["/admin/jobs","المهام الخلفية"],["/admin/content","المحتوى"],["/admin/contact","رسائل التواصل"],["/admin/categories","التصنيفات"],["/admin/media","الوسائط"],["/admin/schedules","الجدولة"],["/admin/integrations","التكاملات"],["/admin/settings","الإعدادات"],["/admin/logs","السجلات"]];
 
-export function AppShell({ admin=false, title, children }: { admin?: boolean; title: string; children: React.ReactNode }) {
+export function AppShell({ admin=false, canManage=false, title, children }: { admin?: boolean; canManage?: boolean; title: string; children: React.ReactNode }) {
   const links = admin ? adminLinks : userLinks;
   return (
     <div className="app-layout">
@@ -20,11 +20,18 @@ export function AppShell({ admin=false, title, children }: { admin?: boolean; ti
       <main className="app-main">
         <header className="app-top">
           <div><small>{admin ? "CONTROL CENTER" : "PRIVATE WORKSPACE"}</small><h1>{title}</h1></div>
-          <div className="app-top-actions"><AppearanceControls compact /><Link className="button secondary" href="/">الموقع العام</Link></div>
+          <div className="app-top-actions">
+            <AppearanceControls compact />
+            {!admin && canManage && <Link className="button admin-entry" href="/admin">لوحة الإدارة</Link>}
+            <Link className="button secondary" href="/">الموقع العام</Link>
+          </div>
         </header>
         <details className="mobile-app-nav">
           <summary>التنقل داخل {admin ? "الإدارة" : "الحساب"} <span>⌄</span></summary>
-          <nav>{links.map(([href, label]) => <Link href={href} key={href}>{label}</Link>)}</nav>
+          <nav>
+            {links.map(([href, label]) => <Link href={href} key={href}>{label}</Link>)}
+            {!admin && canManage && <Link className="mobile-admin-entry" href="/admin">لوحة الإدارة</Link>}
+          </nav>
         </details>
         {children}
       </main>

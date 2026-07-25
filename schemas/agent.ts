@@ -5,7 +5,7 @@ export const agentAdminInputSchema = z.object({
   name: z.string().trim().min(2).max(120),
   description: z.string().trim().max(1_000).optional(),
   systemPrompt: z.string().trim().min(1).max(100_000),
-  defaultModelId: z.uuid(),
+  defaultModelId: z.uuid().nullable().optional(),
   knowledgeBaseId: z.uuid().nullable().optional(),
   temperature: z.number().min(0).max(2).default(0.2),
   maxTokens: z.number().int().min(1).max(128_000).default(4096),
@@ -20,4 +20,8 @@ export const agentAdminInputSchema = z.object({
     requireEvidence: z.boolean().default(false),
     minimumConfidence: z.number().min(0).max(1).default(0.55),
   }),
+}).superRefine((value, context) => {
+  if (value.status === "active" && !value.defaultModelId) {
+    context.addIssue({ code: "custom", path: ["defaultModelId"], message: "يلزم تعيين نموذج قبل تفعيل الوكيل." });
+  }
 });

@@ -3,17 +3,28 @@ import { useEffect, useState } from "react";
 
 type Model = { id: string; display_name: string; ai_providers: { name: string } };
 type Agent = { id: string; name: string; slug: string; status: string; ai_models?: { display_name?: string } };
+type KnowledgeBase = { id: string; name: string };
+type Tool = { id: string; name: string; slug: string; enabled: boolean; risk_level: string };
 
 export function AgentManager() {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [models, setModels] = useState<Model[]>([]);
+  const [knowledgeBases, setKnowledgeBases] = useState<KnowledgeBase[]>([]);
+  const [tools, setTools] = useState<Tool[]>([]);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const load = async () => {
-    const [agentResponse, modelResponse] = await Promise.all([fetch("/api/v1/admin/agents"), fetch("/api/v1/models")]);
-    const [agentBody, modelBody] = await Promise.all([agentResponse.json(), modelResponse.json()]);
+    const [agentResponse, modelResponse, knowledgeResponse, toolResponse] = await Promise.all([
+      fetch("/api/v1/admin/agents"), fetch("/api/v1/models"),
+      fetch("/api/v1/knowledge-bases"), fetch("/api/v1/admin/tools"),
+    ]);
+    const [agentBody, modelBody, knowledgeBody, toolBody] = await Promise.all([
+      agentResponse.json(), modelResponse.json(), knowledgeResponse.json(), toolResponse.json(),
+    ]);
     setAgents(agentBody.data ?? []);
     setModels(modelBody.data ?? []);
+    setKnowledgeBases(knowledgeBody.data ?? []);
+    setTools((toolBody.data ?? []).filter((tool: Tool) => tool.enabled));
   };
   useEffect(() => { queueMicrotask(() => void load()); }, []);
 
@@ -25,12 +36,13 @@ export function AgentManager() {
       slug: String(formData.get("slug") ?? ""),
       description: String(formData.get("description") ?? ""),
       systemPrompt: String(formData.get("systemPrompt") ?? ""),
-      defaultModelId: String(formData.get("defaultModelId") ?? ""),
+      defaultModelId: formData.get("defaultModelId") ? String(formData.get("defaultModelId")) : null,
+      knowledgeBaseId: formData.get("knowledgeBaseId") ? String(formData.get("knowledgeBaseId")) : null,
       status: String(formData.get("status") ?? "draft"),
       temperature: Number(formData.get("temperature") ?? 0.2),
       maxTokens: Number(formData.get("maxTokens") ?? 4096),
       memoryEnabled: formData.get("memoryEnabled") === "on",
-      toolIds: [],
+      toolIds: formData.getAll("toolIds").map(String),
       allowedRoles: ["user"],
       policy: { maxSteps: 8, timeoutMs: 120000, maxCostUsd: 1, requireEvidence: false, minimumConfidence: 0.55 },
     };
@@ -46,13 +58,18 @@ export function AgentManager() {
       <label>الاسم<input name="name" required minLength={2} /></label>
       <label>المعرّف<input name="slug" required pattern="[a-z0-9][a-z0-9-]{1,79}" placeholder="research-agent" /></label>
       <label>الوصف<input name="description" /></label>
-      <label>النموذج الافتراضي<select name="defaultModelId" required><option value="">اختر نموذجًا مفعّلًا</option>{models.map((model) => <option key={model.id} value={model.id}>{model.display_name} — {model.ai_providers.name}</option>)}</select></label>
+      <label>النموذج الافتراضي<select name="defaultModelId"><option value="">بدون نموذج — مسودة</option>{models.map((model) => <option key={model.id} value={model.id}>{model.display_name} — {model.ai_providers.name}</option>)}</select></label>
+      <label>قاعدة المعرفة<select name="knowledgeBaseId"><option value="">بدون قاعدة معرفة</option>{knowledgeBases.map((base) => <option key={base.id} value={base.id}>{base.name}</option>)}</select></label>
       <label className="wide">تعليمات النظام<textarea name="systemPrompt" required rows={6} /></label>
       <label>Temperature<input name="temperature" type="number" min="0" max="2" step="0.1" defaultValue="0.2" /></label>
       <label>Max tokens<input name="maxTokens" type="number" min="1" max="128000" defaultValue="4096" /></label>
       <label>الحالة<select name="status" defaultValue="draft"><option value="draft">مسودة</option><option value="active">مفعّل</option><option value="disabled">معطّل</option></select></label>
       <label><input name="memoryEnabled" type="checkbox" /> تفعيل الذاكرة المراجعة</label>
-      <button className="button primary" disabled={busy || models.length === 0}>{busy ? "جارٍ الحفظ…" : "إنشاء وكيل فعلي"}</button>
+      <fieldset className="wide tool-picker"><legend>الأدوات المسموحة</legend>
+        {tools.map((tool) => <label key={tool.id}><input type="checkbox" name="toolIds" value={tool.id} /><span>{tool.name}</span><small>{tool.slug} · {tool.risk_level}</small></label>)}
+        {!tools.length && <p className="empty-state">لا توجد أدوات مفعّلة. فعّل الأدوات الداخلية أو أدوات MCP أولًا.</p>}
+      </fieldset>
+      <button className="button primary" disabled={busy}>{busy ? "جارٍ الحفظ…" : "إنشاء وكيل فعلي"}</button>
     </form>
     {message && <p className="notice">{message}</p>}
     <div className="data-table">

@@ -1,1 +1,11 @@
-import { FeatureState } from "@/components/feature-state";export default function Page(){return <FeatureState title="إعداد الحساب" description="يمكن إكمال الاسم واسم المستخدم واللغة والمظهر بعد تطبيق Migration وربط Supabase."/>;}
+import { AccountSettings } from "@/components/account-settings";
+import { requireUser } from "@/lib/auth/guards";
+
+export default async function Page(){
+  await requireUser("/account/setup");
+  return <section className="page-section">
+    <h1>إعداد الحساب</h1>
+    <p>أكمل بياناتك وتفضيلاتك، ويمكنك تعديلها لاحقًا من صفحة الإعدادات.</p>
+    <AccountSettings />
+  </section>;
+}

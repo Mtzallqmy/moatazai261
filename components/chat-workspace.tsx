@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 
 type Model = {
   id: string;
@@ -39,6 +40,7 @@ export function ChatWorkspace() {
   const [search, setSearch] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
   const controller = useRef<AbortController | null>(null);
   const selected = useMemo(() => models.find((model) => model.id === modelId), [models, modelId]);
 
@@ -57,7 +59,8 @@ export function ChatWorkspace() {
       setConversations(conversationBody.data ?? []);
       setAgents(agentBody.data ?? []);
       setAgentId(agentBody.data?.[0]?.id ?? "");
-    }).catch(() => setError("تعذر تحميل بيانات الدردشة."));
+    }).catch(() => setError("تعذر تحميل بيانات الدردشة. تحقق من الاتصال ثم أعد المحاولة."))
+      .finally(() => setLoading(false));
     return () => controller.current?.abort();
   }, []);
 
@@ -214,40 +217,60 @@ export function ChatWorkspace() {
     setBusy(false);
   }
 
+  const newConversation = () => {
+    setConversationId(undefined);
+    setMessages([]);
+    setBranches([]);
+    setActiveBranchId(null);
+    setBranchFrom(null);
+  };
+  const missingSelection = mode === "chat" ? models.length === 0 : agents.length === 0;
+
   return <div className="chat-grid">
     <aside className="chat-list">
-      <button className="button primary" onClick={() => {
-        setConversationId(undefined);
-        setMessages([]);
-        setBranches([]);
-        setActiveBranchId(null);
-        setBranchFrom(null);
-      }}>محادثة جديدة</button>
-      <label>
-        <span className="sr-only">بحث في المحادثات</span>
-        <input value={search} onChange={(event) => setSearch(event.target.value)}
-          onKeyDown={(event) => { if (event.key === "Enter") void loadConversations(); }}
-          placeholder="بحث في المحادثات…" />
-      </label>
-      <div className="stack">{conversations.map((conversation) =>
-        <button className="conversation-button" key={conversation.id} onClick={() => void openConversation(conversation.id)}>
-          {conversation.is_pinned ? "★ " : ""}{conversation.title}
-        </button>
-      )}</div>
+      <details className="chat-history">
+        <summary>
+          <span>المحادثات</span>
+          <span className="chat-history-count">{conversations.length}</span>
+        </summary>
+        <div className="chat-history-content">
+          <button className="button primary new-chat-button" onClick={newConversation}>＋ محادثة جديدة</button>
+          <label className="chat-search">
+            <span className="sr-only">بحث في المحادثات</span>
+            <input value={search} onChange={(event) => setSearch(event.target.value)}
+              onKeyDown={(event) => { if (event.key === "Enter") void loadConversations(); }}
+              placeholder="بحث في المحادثات…" />
+          </label>
+          <div className="stack">{conversations.map((conversation) =>
+            <button className={`conversation-button ${conversation.id === conversationId ? "active" : ""}`} key={conversation.id} onClick={() => void openConversation(conversation.id)}>
+              {conversation.is_pinned ? "★ " : ""}{conversation.title}
+            </button>
+          )}
+          {!loading && conversations.length === 0 && <small className="chat-list-empty">ستظهر محادثاتك المحفوظة هنا.</small>}
+          </div>
+        </div>
+      </details>
     </aside>
     <section className="chat-panel">
       <div className="chat-toolbar">
-        <label>الوضع<select value={mode} onChange={(event) => setMode(event.target.value as "chat" | "agent")}>
-          <option value="chat">دردشة عادية</option>
-          <option value="agent" disabled={agents.length === 0}>وكيل {agents.length === 0 ? "— لا يوجد وكيل مفعّل" : ""}</option>
-        </select></label>
+        <fieldset className="chat-mode-switch">
+          <legend>وضع التشغيل</legend>
+          <button type="button" aria-pressed={mode === "chat"} onClick={() => setMode("chat")}>
+            <span aria-hidden="true">✦</span><b>دردشة</b><small>نموذج مباشر</small>
+          </button>
+          <button type="button" aria-pressed={mode === "agent"} onClick={() => setMode("agent")}>
+            <span aria-hidden="true">⌁</span><b>وكيل</b><small>{agents.length ? `${agents.length} متاح` : "يحتاج إعدادًا"}</small>
+          </button>
+        </fieldset>
         {mode === "chat"
-          ? <label>النموذج<select value={modelId} onChange={(event) => setModelId(event.target.value)}>
+          ? <label className="chat-resource-select"><span>النموذج</span><select value={modelId} onChange={(event) => setModelId(event.target.value)} disabled={models.length === 0}>
+            {models.length === 0 && <option value="">لا يوجد نموذج متاح</option>}
             {models.map((model) => <option key={model.id} value={model.id}>
               {model.display_name} — {model.ai_providers.name} ({model.billing_tier})
             </option>)}
           </select></label>
-          : <label>الوكيل<select value={agentId} onChange={(event) => setAgentId(event.target.value)}>
+          : <label className="chat-resource-select"><span>الوكيل</span><select value={agentId} onChange={(event) => setAgentId(event.target.value)} disabled={agents.length === 0}>
+            {agents.length === 0 && <option value="">لم يُنشر أي وكيل</option>}
             {agents.map((agent) => <option key={agent.id} value={agent.id}>{agent.name} — {agent.ai_models?.display_name}</option>)}
           </select></label>}
         {conversationId && <>
@@ -265,10 +288,26 @@ export function ChatWorkspace() {
           <option value="">المسار الرئيسي</option>
           {branches.map((branch, index) => <option value={branch.id} key={branch.id}>{branch.name || `فرع ${index + 1}`}</option>)}
         </select></label>}
-        {mode === "chat" && selected && <small>{selected.input_modalities.join("، ")} · {selected.ai_providers.health_status}</small>}
+        {mode === "chat" && selected && <small className="model-health"><i />{selected.input_modalities.join("، ")} · {selected.ai_providers.health_status}</small>}
       </div>
       <div className="messages" aria-live="polite">
-        {messages.length === 0 && <div className="empty-state">ابدأ محادثة خاصة. لن يُرسل الطلب قبل اختيار نموذج أو وكيل مفعّل ومفتاح صالح.</div>}
+        {loading && <div className="chat-loading"><span />جارٍ تجهيز مساحة العمل…</div>}
+        {!loading && messages.length === 0 && !missingSelection && <div className="chat-welcome">
+          <span className="chat-welcome-icon" aria-hidden="true">✦</span>
+          <h2>{mode === "agent" ? "ابدأ مهمة مع وكيلك" : "كيف يمكنني مساعدتك؟"}</h2>
+          <p>{mode === "agent" ? "صف النتيجة المطلوبة بوضوح، وسيتولى الوكيل تنفيذ الخطوات المسموح بها." : "اختر النموذج، ثم اكتب سؤالك. تُحفظ المحادثة في حسابك تلقائيًا."}</p>
+        </div>}
+        {!loading && messages.length === 0 && missingSelection && <div className="chat-setup-state">
+          <span aria-hidden="true">{mode === "agent" ? "⌁" : "◇"}</span>
+          <h2>{mode === "agent" ? "لا يوجد وكيل منشور بعد" : "الدردشة تحتاج نموذجًا مفعّلًا"}</h2>
+          <p>{mode === "agent"
+            ? "ينشئ مدير المنصة الوكيل ويربطه بنموذج وأدوات، ثم ينشره للمستخدمين المسموحين."
+            : "يضيف المدير مزودًا ونموذجًا متاحًا. وبعد ظهوره هنا يمكنك استخدام مفتاح المنصة الافتراضي أو مفتاحك الشخصي."}</p>
+          <div>
+            <Link className="button secondary" href="/account/api-keys">إدارة مفاتيحي</Link>
+            <button className="button primary" type="button" onClick={() => location.reload()}>إعادة الفحص</button>
+          </div>
+        </div>}
         {messages.map((message) => <article className={`message ${message.role}`} key={message.id}>
           <strong>{message.role === "user" ? "أنت" : mode === "agent" ? "الوكيل" : "المساعد"}</strong>
           <pre>{message.content || (message.status === "streaming" ? "" : "تعذر إنشاء الرد.")}</pre>
@@ -288,7 +327,7 @@ export function ChatWorkspace() {
           maxLength={100_000} />
         {busy
           ? <button className="button danger" onClick={stop}>إيقاف</button>
-          : <button className="button primary" onClick={() => void send()}
+          : <button className="button primary composer-send" onClick={() => void send()}
             disabled={(mode === "chat" ? !modelId : !agentId) || !input.trim()}>إرسال</button>}
       </div>
     </section>

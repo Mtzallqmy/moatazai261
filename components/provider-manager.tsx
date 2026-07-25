@@ -2,7 +2,16 @@
 
 import { useEffect, useState } from "react";
 
-type Credential = { id: string; key_hint: string; status: string; priority: number };
+type Credential = {
+  id: string;
+  key_hint: string;
+  status: string;
+  priority: number;
+  is_default: boolean;
+  usage_limit?: number;
+  usage_count?: number;
+  expires_at?: string;
+};
 type Provider = {
   id: string;
   name: string;
@@ -61,6 +70,7 @@ export function ProviderManager() {
         secret,
         headerName: String(form.get("headerName") || "") || undefined,
         username: String(form.get("username") || "") || undefined,
+        isDefault: true,
       } } : {}),
     };
     const response = await fetch("/api/v1/admin/providers", {
@@ -109,7 +119,12 @@ export function ProviderManager() {
     const response = await fetch(`/api/v1/admin/providers/${provider.id}/credentials`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ secret: secret.trim(), priority, authType: provider.auth_type }),
+      body: JSON.stringify({
+        secret: secret.trim(),
+        priority: Number.isFinite(priority) ? priority : 100,
+        isDefault: provider.ai_provider_credentials.length === 0,
+        authType: provider.auth_type,
+      }),
     });
     const body = await response.json().catch(() => null);
     if (response.ok) setMessage(`تمت إضافة ${body.data.key_hint} بصورة مشفرة.`);
@@ -117,10 +132,12 @@ export function ProviderManager() {
     await load();
   }
 
-  async function updateCredential(provider: Provider, credential: Credential, action: "toggle" | "rotate") {
+  async function updateCredential(provider: Provider, credential: Credential, action: "toggle" | "rotate" | "default") {
     const body = action === "rotate"
       ? { credentialId: credential.id, secret: window.prompt("أدخل القيمة الجديدة. لن تظهر بعد الحفظ.")?.trim() }
-      : { credentialId: credential.id, status: credential.status === "active" ? "disabled" : "active" };
+      : action === "default"
+        ? { credentialId: credential.id, isDefault: true, status: "active" }
+        : { credentialId: credential.id, status: credential.status === "active" ? "disabled" : "active" };
     if (action === "rotate" && !body.secret) return;
     const response = await fetch(`/api/v1/admin/providers/${provider.id}/credentials`, {
       method: "PATCH",
@@ -128,7 +145,11 @@ export function ProviderManager() {
       body: JSON.stringify(body),
     });
     const payload = await response.json().catch(() => null);
-    if (response.ok) setMessage(action === "rotate" ? "تم تدوير المفتاح المشفر." : "تم تحديث حالة المفتاح.");
+    if (response.ok) setMessage(action === "rotate"
+      ? "تم تدوير المفتاح المشفر."
+      : action === "default"
+        ? "تم تعيين المفتاح الافتراضي لهذا المزود."
+        : "تم تحديث حالة المفتاح.");
     else setError(payload?.error?.message ?? "تعذر تحديث المفتاح.");
     await load();
   }
@@ -162,7 +183,10 @@ export function ProviderManager() {
         autoComplete="new-password" placeholder="API key — اختياري" dir="ltr" />
       <button className="button primary" disabled={saving}>{saving ? "جارٍ الحفظ…" : "حفظ المزود"}</button>
     </form>
-    <div className="notice">أضف نموذجًا يدويًا أو استورده عندما يدعم المزود ذلك. لا يُشترط وجود نموذج أو مفتاح أثناء إعداد المزود.</div>
+    <div className="notice">
+      مسار التشغيل: احفظ المزود ← أضف مفتاحًا مركزيًا اختياريًا ← اختبر الاتصال ← فعّل المزود
+      ← <a href="/admin/models">أضف أو استورد نموذجًا</a>.
+    </div>
     {message && <p className="notice">{message}</p>}
     {error && <p className="error-state">{error}</p>}
     <div className="table-wrap"><table><thead><tr>
@@ -173,13 +197,18 @@ export function ProviderManager() {
       <td>{provider.enabled ? "مفعّل" : "معطّل"} · {provider.health_status}
         {provider.last_error_code && <small>{provider.last_error_code}</small>}</td>
       <td>{provider.ai_provider_credentials?.length
-        ? provider.ai_provider_credentials.map((credential) => <span key={credential.id}>
+        ? provider.ai_provider_credentials.map((credential) => <div key={credential.id}>
           {credential.key_hint} · P{credential.priority} · {credential.status}
+          {credential.is_default && <small>افتراضي</small>}
+          {credential.usage_limit && <small>{credential.usage_count ?? 0}/{credential.usage_limit} استخدام</small>}
           <button className="link-button" onClick={() => void updateCredential(provider, credential, "rotate")}>تدوير</button>
           <button className="link-button" onClick={() => void updateCredential(provider, credential, "toggle")}>
             {credential.status === "active" ? "تعطيل" : "تفعيل"}
           </button>
-        </span>)
+          {!credential.is_default && <button className="link-button" onClick={() => void updateCredential(provider, credential, "default")}>
+            اجعله افتراضيًا
+          </button>}
+        </div>)
         : "BYOK أو بلا مفتاح"}</td>
       <td>{provider.last_latency_ms ? `${provider.last_latency_ms}ms` : "—"}</td>
       <td>
