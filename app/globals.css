@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-:root { --bg:#060b12; --panel:#0d1622; --panel-2:#111d2c; --text:#f4f7fb; --muted:#94a3b8; --line:rgba(173,194,221,.13); --brand:#7c6df2; --accent:#23c9a8; --glow:rgba(124,109,242,.22); color-scheme:dark; }
+:root { --font-geist-sans:Inter,"Segoe UI",Arial,sans-serif; --font-geist-mono:"SFMono-Regular",Consolas,"Liberation Mono",monospace; --bg:#060b12; --panel:#0d1622; --panel-2:#111d2c; --text:#f4f7fb; --muted:#94a3b8; --line:rgba(173,194,221,.13); --brand:#7c6df2; --accent:#23c9a8; --glow:rgba(124,109,242,.22); color-scheme:dark; }
 * { box-sizing:border-box; }
 html { scroll-behavior:smooth; }
 body { margin:0; background:var(--bg); color:var(--text); font-family:"Noto Kufi Arabic Variable",var(--font-geist-sans),sans-serif; font-optical-sizing:auto; text-rendering:optimizeLegibility; }
