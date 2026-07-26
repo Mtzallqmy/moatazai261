@@ -1,5 +1,5 @@
 import { isIP } from "node:net";
-import { lookup } from "node:dns/promises";
+import { resolve4, resolve6 } from "node:dns/promises";
 
 const blockedHostnames = new Set([
   "localhost",
@@ -28,8 +28,8 @@ export async function assertSafeOutboundUrl(value: string) {
   if (process.env.ALLOW_PRIVATE_PROVIDER_URLS === "true") return safe;
   const host = normalizeHost(new URL(safe).hostname);
   if (isIP(host)) return safe;
-  const addresses = await lookup(host, { all: true, verbatim: true });
-  if (!addresses.length || addresses.some(({ address }) => isPrivateAddress(address))) {
+  const addresses = await resolvePublicHostAddresses(host);
+  if (addresses.some((address) => isPrivateAddress(address))) {
     throw new Error("Endpoint DNS resolves to a blocked network");
   }
   return safe;
@@ -37,6 +37,16 @@ export async function assertSafeOutboundUrl(value: string) {
 
 function normalizeHost(host: string) {
   return host.toLowerCase().replace(/^\[|\]$/g, "").replace(/\.$/, "");
+}
+
+export async function resolvePublicHostAddresses(hostname: string): Promise<string[]> {
+  const host = normalizeHost(hostname);
+  const results = await Promise.allSettled([resolve4(host), resolve6(host)]);
+  const addresses = results.flatMap((result) => result.status === "fulfilled" ? result.value : []);
+  if (!addresses.length) {
+    throw new Error("Provider endpoint DNS could not be resolved");
+  }
+  return addresses;
 }
 
 export function isPrivateAddress(input: string): boolean {
