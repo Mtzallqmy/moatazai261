@@ -2,7 +2,7 @@ import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser, hasCurrentPermission } from "@/lib/auth/guards";
 import { rateLimiter, rateLimitHeaders } from "@/lib/rate-limit";
-import { assertSafeOutboundUrl } from "@/lib/security/provider-url";
+import { assertSafeProviderUrl } from "@/lib/security/provider-url";
 import { providerErrorResponse, safeProviderError } from "@/providers/error-normalizer";
 import type { ProviderConfiguration, ProviderCredential } from "@/providers/types";
 import { providerUpdateSchema } from "@/schemas/provider";
@@ -126,7 +126,7 @@ async function applyDraftConfiguration(
     ...stored,
     type: draft.providerType ?? stored.type,
     name: draft.name ?? stored.name,
-    baseUrl: draft.baseUrl ? await assertSafeOutboundUrl(draft.baseUrl) : stored.baseUrl,
+    baseUrl: draft.baseUrl ? assertSafeProviderUrl(draft.baseUrl) : stored.baseUrl,
     chatEndpoint: draft.chatEndpoint ?? stored.chatEndpoint,
     modelsEndpoint: draft.modelsEndpoint ?? stored.modelsEndpoint,
     apiVersion: draft.apiVersion ?? stored.apiVersion,
