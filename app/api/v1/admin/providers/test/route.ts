@@ -1,6 +1,7 @@
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser, hasCurrentPermission, isOwner } from "@/lib/auth/guards";
 import { rateLimiter, rateLimitHeaders } from "@/lib/rate-limit";
-import { providerErrorResponse } from "@/providers/error-normalizer";
+import { providerErrorResponse, safeProviderError } from "@/providers/error-normalizer";
 import { providerDraftTestSchema } from "@/schemas/provider";
 import { buildRuntimeProviderConfiguration } from "@/services/provider-runtime-configuration";
 import { runProviderDiagnostics } from "@/services/provider-test-service";
@@ -31,16 +32,47 @@ export async function POST(request: Request) {
       error: { code: "OWNER_REQUIRED", message: "اختبار مفتاح مركزي متاح للمالك فقط." },
     }, { status: 403, headers: rateLimitHeaders(limit) });
   }
+  const requestId = crypto.randomUUID();
+  const startedAt = Date.now();
+  const hostname = new URL(parsed.data.baseUrl).hostname;
   try {
     const configuration = await buildRuntimeProviderConfiguration(parsed.data);
     const health = await runProviderDiagnostics(configuration, {
-      requestId: crypto.randomUUID(),
+      requestId,
       userId: user.id,
       signal: request.signal,
       timeoutMs: Math.min(parsed.data.timeoutMs, 30_000),
     }, parsed.data.testModel);
+    await createAdminClient().from("audit_logs").insert({
+      actor_user_id: user.id,
+      action: "provider.draft_connection_tested",
+      resource_type: "ai_provider_draft",
+      metadata: {
+        ok: true,
+        providerType: parsed.data.providerType,
+        hostname,
+        latencyMs: health.latencyMs,
+        modelCount: health.modelCount,
+        testedModel: health.testedModel,
+      },
+    });
     return Response.json({ data: health }, { headers: { ...rateLimitHeaders(limit), "Cache-Control": "no-store" } });
-  } catch (error) {
-    return providerErrorResponse(error);
+  } catch (cause) {
+    const error = safeProviderError(cause);
+    await createAdminClient().from("audit_logs").insert({
+      actor_user_id: user.id,
+      action: "provider.draft_connection_tested",
+      resource_type: "ai_provider_draft",
+      metadata: {
+        ok: false,
+        providerType: parsed.data.providerType,
+        hostname,
+        latencyMs: Date.now() - startedAt,
+        errorCode: error.code,
+        errorId: error.errorId,
+        httpStatus: error.details?.httpStatus ?? error.status,
+      },
+    });
+    return providerErrorResponse(cause);
   }
 }
