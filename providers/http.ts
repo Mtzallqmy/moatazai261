@@ -19,7 +19,21 @@ export async function providerFetch(configuration: ProviderConfiguration, input:
   if (configuration.credential?.authType === "query") {
     outbound.searchParams.set(configuration.credential.queryName ?? "key", configuration.credential.secret);
   }
-  const safeInput = await assertSafeOutboundUrl(outbound.toString());
+  let safeInput: string;
+  try {
+    safeInput = await assertSafeOutboundUrl(outbound.toString());
+  } catch (error) {
+    const reason = safeNetworkReason(error);
+    const dnsFailure = reason.includes("DNS could not be resolved");
+    logProviderFailure(configuration.id, context.requestId, outbound.hostname, 0, "url_validation", reason);
+    throw new ProviderError(
+      dnsFailure ? "تعذر حل اسم نطاق المزود." : "تعذر التحقق الآمن من عنوان المزود.",
+      dnsFailure ? "NETWORK_ERROR" : "INVALID_CONFIGURATION",
+      dnsFailure,
+      dnsFailure ? 502 : 422,
+      { providerMessage: reason, networkStage: "url_validation" },
+    );
+  }
   const attempts=(configuration.retryCount ?? 2)+1;
   for(let attempt=1;attempt<=attempts;attempt++){
     const timeout=AbortSignal.timeout(context.timeoutMs ?? configuration.timeoutMs ?? 90_000);
@@ -30,16 +44,50 @@ export async function providerFetch(configuration: ProviderConfiguration, input:
     } catch(error) {
       if(context.signal?.aborted) throw new ProviderError("Request cancelled","ABORTED",false,499);
       const timedOut = timeout.aborted || error instanceof DOMException && error.name === "TimeoutError";
+      const reason = safeNetworkReason(error);
+      logProviderFailure(
+        configuration.id,
+        context.requestId,
+        outbound.hostname,
+        attempt,
+        timedOut ? "timeout" : "fetch",
+        reason,
+      );
       if(attempt===attempts) throw new ProviderError(
         timedOut ? "انتهت مهلة اتصال المزود." : "تعذر الوصول إلى شبكة المزود.",
         timedOut ? "TIMEOUT" : "NETWORK_ERROR",
         true,
         timedOut ? 504 : 502,
+        { providerMessage: reason, networkStage: timedOut ? "timeout" : "fetch" },
       );
     }
     await new Promise(resolve=>setTimeout(resolve,Math.min(250*2**(attempt-1),2000)+Math.random()*100));
   }
   throw new ProviderError("Provider unavailable","PROVIDER_UNAVAILABLE",true,503);
+}
+
+function safeNetworkReason(error: unknown) {
+  if (!(error instanceof Error)) return "Network request failed";
+  const cause = error.cause instanceof Error ? `: ${error.cause.message}` : "";
+  return redactProviderText(`${error.name}: ${error.message}${cause}`);
+}
+
+function logProviderFailure(
+  providerId: string,
+  requestId: string,
+  hostname: string,
+  attempt: number,
+  stage: string,
+  reason: string,
+) {
+  console.error("provider.outbound_failed", {
+    providerId,
+    requestId,
+    hostname,
+    attempt,
+    stage,
+    reason,
+  });
 }
 export function normalizedError(status:number, fallback="Provider request failed") {
   const message = redactProviderText(fallback);
