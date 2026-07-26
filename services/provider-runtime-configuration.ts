@@ -1,7 +1,7 @@
 import type { z } from "zod";
 import type { providerInputSchema } from "@/schemas/provider";
 import type { ProviderConfiguration, ProviderCredential } from "@/providers/types";
-import { assertSafeOutboundUrl } from "@/lib/security/provider-url";
+import { assertSafeProviderUrl } from "@/lib/security/provider-url";
 
 type ProviderInput = z.infer<typeof providerInputSchema>;
 
@@ -15,7 +15,7 @@ export async function buildRuntimeProviderConfiguration(
     id,
     type: value.providerType,
     name: value.name,
-    baseUrl: await assertSafeOutboundUrl(value.baseUrl),
+    baseUrl: assertSafeProviderUrl(value.baseUrl),
     enabled: value.enabled,
     chatEndpoint: value.chatEndpoint,
     modelsEndpoint: value.modelsEndpoint,
