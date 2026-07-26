@@ -1,6 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser, hasCurrentPermission } from "@/lib/auth/guards";
-import { assertSafeOutboundUrl } from "@/lib/security/provider-url";
+import { assertSafeProviderUrl } from "@/lib/security/provider-url";
 import { providerUpdateSchema } from "@/schemas/provider";
 
 export async function PATCH(
@@ -58,7 +58,7 @@ export async function PATCH(
     const fields = {
       ...(value.name !== undefined ? { name: value.name } : {}),
       ...(value.providerType !== undefined ? { provider_type: value.providerType } : {}),
-      ...(value.baseUrl !== undefined ? { base_url: await assertSafeOutboundUrl(value.baseUrl) } : {}),
+      ...(value.baseUrl !== undefined ? { base_url: assertSafeProviderUrl(value.baseUrl) } : {}),
       ...(value.authType !== undefined ? { auth_type: value.authType } : {}),
       ...(value.chatEndpoint !== undefined ? { chat_endpoint: value.chatEndpoint } : {}),
       ...(value.modelsEndpoint !== undefined ? { models_endpoint: value.modelsEndpoint } : {}),
