@@ -13,6 +13,7 @@ import {
   providerCredentialUpdateSchema,
   providerInputSchema,
 } from "../schemas/provider";
+import { isPrivateAddress } from "../lib/security/provider-url";
 
 const baseConfiguration: ProviderConfiguration = {
   id: "provider",
@@ -34,6 +35,29 @@ test("provider URL normalization removes duplicate slashes and version segments"
   assert.equal(normalizeProviderEndpoint("chat//completions", "/chat/completions"), "/chat/completions");
   assert.throws(() => normalizeProviderEndpoint("https://evil.example", "/models"));
   assert.throws(() => normalizeProviderEndpoint("../metadata", "/models"));
+});
+
+test("provider SSRF guard recognizes private and metadata network addresses", () => {
+  for (const address of [
+    "127.0.0.1",
+    "10.0.0.1",
+    "172.16.0.1",
+    "192.168.1.1",
+    "169.254.169.254",
+    "::1",
+    "fd00::1",
+  ]) {
+    assert.equal(isPrivateAddress(address), true, address);
+  }
+  assert.equal(isPrivateAddress("1.1.1.1"), false);
+  assert.equal(isPrivateAddress("2606:4700:4700::1111"), false);
+});
+
+test("provider DNS validation uses Worker-supported resolvers instead of lookup", () => {
+  const source = readFileSync("lib/security/provider-url.ts", "utf8");
+  assert.match(source, /resolve4/);
+  assert.match(source, /resolve6/);
+  assert.doesNotMatch(source, /\blookup\s*\(/);
 });
 
 test("OpenRouter preset uses its documented OpenAI-compatible defaults", () => {
@@ -127,4 +151,6 @@ test("provider management routes require permissions, atomic writes and secret-s
   assert.doesNotMatch(credentialRoute, /\.select\([^)]*encrypted_secret/);
   assert.match(migration, /revoke all on function public\.create_ai_provider_atomic/);
   assert.match(migration, /grant execute[\s\S]*service_role/);
+  assert.match(draftTestRoute, /provider\.draft_connection_tested/);
+  assert.doesNotMatch(draftTestRoute, /credential\.secret/);
 });
