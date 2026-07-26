@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { agentPresets } from "@/features/agents/presets";
 
 type Model = { id: string; display_name: string; ai_providers: { name: string } };
 type Agent = { id: string; name: string; slug: string; status: string; ai_models?: { display_name?: string } };
@@ -13,6 +14,8 @@ export function AgentManager() {
   const [tools, setTools] = useState<Tool[]>([]);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  const [presetSlug, setPresetSlug] = useState(agentPresets[0].slug);
+  const selectedPreset = agentPresets.find((preset) => preset.slug === presetSlug) ?? agentPresets[0];
   const load = async () => {
     const [agentResponse, modelResponse, knowledgeResponse, toolResponse] = await Promise.all([
       fetch("/api/v1/admin/agents"), fetch("/api/v1/models"),
@@ -44,7 +47,7 @@ export function AgentManager() {
       memoryEnabled: formData.get("memoryEnabled") === "on",
       toolIds: formData.getAll("toolIds").map(String),
       allowedRoles: ["user"],
-      policy: { maxSteps: 8, timeoutMs: 120000, maxCostUsd: 1, requireEvidence: false, minimumConfidence: 0.55 },
+      policy: selectedPreset.policy,
     };
     const response = await fetch("/api/v1/admin/agents", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     const payload = await response.json();
@@ -54,15 +57,27 @@ export function AgentManager() {
   }
 
   return <div className="stack">
-    <form className="admin-card form-grid" action={(formData) => void submit(formData)}>
-      <label>الاسم<input name="name" required minLength={2} /></label>
-      <label>المعرّف<input name="slug" required pattern="[a-z0-9][a-z0-9-]{1,79}" placeholder="research-agent" /></label>
-      <label>الوصف<input name="description" /></label>
+    <section className="agent-preset-grid" aria-label="قوالب الوكلاء">
+      {agentPresets.map((preset) => <button
+        type="button"
+        className={preset.slug === presetSlug ? "agent-preset active" : "agent-preset"}
+        onClick={() => setPresetSlug(preset.slug)}
+        key={preset.slug}
+      >
+        <b>{preset.name}</b>
+        <span>{preset.description}</span>
+        <small>{preset.policy.maxSteps} خطوات · {preset.policy.timeoutMs / 1000} ثانية</small>
+      </button>)}
+    </section>
+    <form className="admin-card form-grid" key={selectedPreset.slug} action={(formData) => void submit(formData)}>
+      <label>الاسم<input name="name" required minLength={2} defaultValue={selectedPreset.name} /></label>
+      <label>المعرّف<input name="slug" required pattern="[a-z0-9][a-z0-9-]{1,79}" defaultValue={selectedPreset.slug} placeholder="research-agent" /></label>
+      <label>الوصف<input name="description" defaultValue={selectedPreset.description} /></label>
       <label>النموذج الافتراضي<select name="defaultModelId"><option value="">بدون نموذج — مسودة</option>{models.map((model) => <option key={model.id} value={model.id}>{model.display_name} — {model.ai_providers.name}</option>)}</select></label>
       <label>قاعدة المعرفة<select name="knowledgeBaseId"><option value="">بدون قاعدة معرفة</option>{knowledgeBases.map((base) => <option key={base.id} value={base.id}>{base.name}</option>)}</select></label>
-      <label className="wide">تعليمات النظام<textarea name="systemPrompt" required rows={6} /></label>
-      <label>Temperature<input name="temperature" type="number" min="0" max="2" step="0.1" defaultValue="0.2" /></label>
-      <label>Max tokens<input name="maxTokens" type="number" min="1" max="128000" defaultValue="4096" /></label>
+      <label className="wide">تعليمات النظام<textarea name="systemPrompt" required rows={6} defaultValue={selectedPreset.systemPrompt} /></label>
+      <label>Temperature<input name="temperature" type="number" min="0" max="2" step="0.1" defaultValue={selectedPreset.temperature} /></label>
+      <label>Max tokens<input name="maxTokens" type="number" min="1" max="128000" defaultValue={selectedPreset.maxTokens} /></label>
       <label>الحالة<select name="status" defaultValue="draft"><option value="draft">مسودة</option><option value="active">مفعّل</option><option value="disabled">معطّل</option></select></label>
       <label><input name="memoryEnabled" type="checkbox" /> تفعيل الذاكرة المراجعة</label>
       <fieldset className="wide tool-picker"><legend>الأدوات المسموحة</legend>

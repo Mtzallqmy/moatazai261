@@ -1,7 +1,7 @@
 import { buildUrl, normalizedError, parseSse, providerFetch } from "./http";
-import { ProviderError, type AIProviderAdapter, type ProviderConfiguration, type ProviderHealth, type ProviderModel, type ProviderRequestContext, type StreamingResponse, type UnifiedChatRequest, type UnifiedChatResponse } from "./types";
+import { ProviderError, type ProviderAdapterImplementation, type ProviderConfiguration, type ProviderHealth, type ProviderModel, type ProviderRequestContext, type StreamingResponse, type UnifiedChatRequest, type UnifiedChatResponse } from "./types";
 const caps={text:true,vision:true,audio:true,video:true,documents:true,tools:true,structuredOutput:true,embeddings:true,streaming:true};
-export class GeminiAdapter implements AIProviderAdapter{readonly type="google-gemini";readonly capabilities={modelDiscovery:true,streaming:true,tools:true,vision:true,audio:true,video:true,documents:true,embeddings:true};
+export class GeminiAdapter implements ProviderAdapterImplementation{readonly type="google-gemini";readonly capabilities={modelDiscovery:true,streaming:true,tools:true,vision:true,audio:true,video:true,documents:true,embeddings:true};
  async validateConfiguration(c:ProviderConfiguration){if(!c.baseUrl||!c.credential?.secret)throw new ProviderError("Gemini URL and API key are required","INVALID_CONFIGURATION",false,422);}
  private url(c:ProviderConfiguration,path:string){const u=buildUrl(c.baseUrl,path);u.searchParams.set("key",c.credential!.secret);return u;}
  async testConnection(c:ProviderConfiguration,x:ProviderRequestContext):Promise<ProviderHealth>{const s=Date.now();try{await this.listModels(c,x);return{ok:true,latencyMs:Date.now()-s,checkedAt:new Date().toISOString()};}catch(e){return{ok:false,latencyMs:Date.now()-s,checkedAt:new Date().toISOString(),errorCode:e instanceof ProviderError?e.code:"UNKNOWN"};}}

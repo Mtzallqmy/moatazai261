@@ -1,4 +1,10 @@
-import type { AIProviderAdapter } from "./types";
+import type {
+  AIProviderAdapter,
+  ProviderAdapterImplementation,
+  ProviderConfiguration,
+  ProviderRequestContext,
+  UnifiedChatRequest,
+} from "./types";
 import { OpenAICompatibleAdapter } from "./openai-compatible-adapter";
 import { AnthropicAdapter } from "./anthropic-adapter";
 import { GeminiAdapter } from "./gemini-adapter";
@@ -7,9 +13,53 @@ import { BedrockAdapter, NamedOpenAIAdapter } from "./known-adapters";
 
 export class ProviderRegistry {
   private readonly adapters=new Map<string,AIProviderAdapter>();
-  register(adapter:AIProviderAdapter){if(this.adapters.has(adapter.type))throw new Error(`Adapter already registered: ${adapter.type}`);this.adapters.set(adapter.type,adapter);return this;}
+  register(implementation:ProviderAdapterImplementation){
+    if(this.adapters.has(implementation.type))throw new Error(`Adapter already registered: ${implementation.type}`);
+    this.adapters.set(implementation.type, new ProviderAdapter(implementation));
+    return this;
+  }
   get(type:string){const adapter=this.adapters.get(type);if(!adapter)throw new Error(`Unsupported provider adapter: ${type}`);return adapter;}
   supportedTypes(){return[...this.adapters.keys()];}
+}
+
+class ProviderAdapter implements AIProviderAdapter {
+  readonly type;
+  readonly capabilities;
+  readonly embed;
+  readonly generateImage;
+  readonly transcribe;
+  readonly speak;
+  readonly rerank;
+
+  constructor(private readonly implementation: ProviderAdapterImplementation) {
+    this.type = implementation.type;
+    this.capabilities = implementation.capabilities;
+    this.embed = implementation.embed?.bind(implementation);
+    this.generateImage = implementation.generateImage?.bind(implementation);
+    this.transcribe = implementation.transcribe?.bind(implementation);
+    this.speak = implementation.speak?.bind(implementation);
+    this.rerank = implementation.rerank?.bind(implementation);
+  }
+
+  validateConfig(configuration: ProviderConfiguration) {
+    return this.implementation.validateConfiguration(configuration);
+  }
+
+  testConnection(configuration: ProviderConfiguration, context: ProviderRequestContext) {
+    return this.implementation.testConnection(configuration, context);
+  }
+
+  listModels(configuration: ProviderConfiguration, context: ProviderRequestContext) {
+    return this.implementation.listModels(configuration, context);
+  }
+
+  chat(configuration: ProviderConfiguration, request: UnifiedChatRequest, context: ProviderRequestContext) {
+    return this.implementation.complete(configuration, request, context);
+  }
+
+  streamChat(configuration: ProviderConfiguration, request: UnifiedChatRequest, context: ProviderRequestContext) {
+    return this.implementation.stream(configuration, request, context);
+  }
 }
 export const providerRegistry=new ProviderRegistry()
  .register(new OpenAICompatibleAdapter()).register(new NamedOpenAIAdapter("openai"))

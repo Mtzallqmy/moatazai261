@@ -165,7 +165,7 @@ export class AgentRunManager {
         }).select("id").single();
         if (stepError || !step) throw new Error("Could not persist agent step");
 
-        const response = await adapter.complete(configuration, {
+        const response = await adapter.chat(configuration, {
           model: model.model_key,
           messages,
           temperature: Number(version.temperature),

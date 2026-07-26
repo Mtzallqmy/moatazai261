@@ -52,17 +52,18 @@ export async function resolveProviderCredential(
   if (!item) throw new Error("No active provider credential");
   const metadata = (item.auth_metadata ?? {}) as Record<string, unknown>;
   const secret = await secretCrypto.decrypt(item.encrypted_secret, { providerId, credentialId: item.id });
+  const authType = typeof metadata.authType === "string"
+    ? metadata.authType as ProviderCredential["authType"]
+    : defaults?.authType;
   return {
     id: item.id,
     secret,
     source: "platform",
-    authType: typeof metadata.authType === "string" ? metadata.authType as ProviderCredential["authType"] : undefined,
-    headerName: typeof metadata.headerName === "string" ? metadata.headerName : undefined,
-    queryName: typeof metadata.queryName === "string" ? metadata.queryName : undefined,
-    username: typeof metadata.username === "string" ? metadata.username : undefined,
-    customHeaders: typeof metadata.customHeaders === "object" && metadata.customHeaders
-      ? metadata.customHeaders as Record<string, string>
-      : undefined,
+    authType,
+    headerName: typeof metadata.headerName === "string" ? metadata.headerName : defaults?.headerName,
+    queryName: typeof metadata.queryName === "string" ? metadata.queryName : defaults?.queryName,
+    username: typeof metadata.username === "string" ? metadata.username : defaults?.username,
+    customHeaders: authType === "custom_headers" ? parseCustomHeaders(secret) : undefined,
   };
 }
 

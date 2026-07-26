@@ -33,3 +33,27 @@ To add a provider:
 9. Test the connection and a specific disabled model before making it visible.
 
 OpenAI-compatible endpoints must not be assumed to implement every OpenAI feature. Model capability flags remain authoritative.
+
+## Administration workflow
+
+1. Select OpenAI, OpenRouter, or the OpenAI-compatible preset.
+2. Review the normalized base URL and relative endpoints. The URL builder removes duplicate slashes and overlapping version segments such as `/v1/v1`.
+3. Select exactly one authentication mode. Public headers cannot contain `Authorization`, cookies or other secrets.
+4. Use **Test connection before save**. A draft test performs model discovery and a short non-streaming chat request.
+5. Save the provider disabled. Failed external connectivity does not destroy a structurally valid draft.
+6. Import discovered models, review their capability flags, and enable only the intended models.
+7. Enable the provider only after a successful test made after its latest structural change.
+
+Leaving a credential field blank during an update preserves the existing encrypted credential. The API returns only its masked hint. Central credentials can be created or rotated only by the platform owner.
+
+## OpenRouter preset
+
+- Base URL: `https://openrouter.ai/api/v1`
+- Chat endpoint: `/chat/completions`
+- Models endpoint: `/models`
+- Authentication: `Authorization: Bearer <API_KEY>`
+- Public attribution headers: `HTTP-Referer` and `X-Title`
+
+## Network security
+
+Production provider URLs must use HTTPS. Loopback, private, link-local, cloud-metadata and DNS-resolved private destinations are rejected. Redirect following is disabled. `ALLOW_PRIVATE_PROVIDER_URLS` must remain `false` in public deployments.

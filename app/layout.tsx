@@ -3,6 +3,7 @@ import "@fontsource-variable/noto-kufi-arabic";
 import "./globals.css";
 import "./production.css";
 import "./design-system.css";
+import "./provider-console.css";
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "https://moatazalalqami.online"),

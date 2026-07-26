@@ -23,7 +23,17 @@ export type UnifiedChatResponse = { id: string; model: string; content: string; 
 export type StreamingEvent = { type: "start" | "delta" | "tool-call" | "usage" | "error" | "done"; content?: string; toolCall?: ToolCall; usage?: ProviderUsage; error?: { code: ProviderErrorCode; message: string; errorId: string } };
 export type StreamingResponse = AsyncIterable<StreamingEvent>;
 export type ProviderModel = { id: string; name?: string; capabilities: ModelCapabilities };
-export type ProviderHealth = { ok: boolean; latencyMs: number; checkedAt: string; errorCode?: ProviderErrorCode };
+export type ProviderHealth = {
+  ok: boolean;
+  latencyMs: number;
+  checkedAt: string;
+  errorCode?: ProviderErrorCode;
+  httpStatus?: number;
+  message?: string;
+  requestId?: string;
+  modelCount?: number;
+  testedModel?: string;
+};
 export type EmbeddingRequest = { model: string; inputs: string[]; dimensions?: number };
 export type EmbeddingResponse = { model: string; embeddings: number[][]; usage?: ProviderUsage };
 export type ImageGenerationRequest = { model: string; prompt: string; size?: string; count?: number };
@@ -40,7 +50,7 @@ export class ProviderError extends Error {
   constructor(message: string, public readonly code: ProviderErrorCode, public readonly retryable = false, public readonly status = 502, public readonly safeDetails?: Record<string, unknown>) { super(message); this.name = "ProviderError"; }
 }
 
-export interface AIProviderAdapter {
+export interface ProviderAdapterImplementation {
   readonly type: string;
   readonly capabilities: ProviderCapabilities;
   validateConfiguration(configuration: ProviderConfiguration): Promise<void>;
@@ -53,6 +63,21 @@ export interface AIProviderAdapter {
   transcribe?(configuration: ProviderConfiguration, request: AudioTranscriptionRequest, context: ProviderRequestContext): Promise<AudioTranscriptionResponse>;
   speak?(configuration: ProviderConfiguration, request: SpeechRequest, context: ProviderRequestContext): Promise<SpeechResponse>;
   rerank?(configuration: ProviderConfiguration, request: RerankRequest, context: ProviderRequestContext): Promise<RerankResponse>;
+}
+
+export interface AIProviderAdapter {
+  readonly type: string;
+  readonly capabilities: ProviderCapabilities;
+  validateConfig(configuration: ProviderConfiguration): Promise<void>;
+  testConnection(configuration: ProviderConfiguration, context: ProviderRequestContext): Promise<ProviderHealth>;
+  listModels(configuration: ProviderConfiguration, context: ProviderRequestContext): Promise<ProviderModel[]>;
+  chat(configuration: ProviderConfiguration, request: UnifiedChatRequest, context: ProviderRequestContext): Promise<UnifiedChatResponse>;
+  streamChat(configuration: ProviderConfiguration, request: UnifiedChatRequest, context: ProviderRequestContext): StreamingResponse;
+  embed?: ProviderAdapterImplementation["embed"];
+  generateImage?: ProviderAdapterImplementation["generateImage"];
+  transcribe?: ProviderAdapterImplementation["transcribe"];
+  speak?: ProviderAdapterImplementation["speak"];
+  rerank?: ProviderAdapterImplementation["rerank"];
 }
 
 // Compatibility aliases for stage-one consumers.

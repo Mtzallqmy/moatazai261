@@ -215,7 +215,7 @@ export async function prepareChat(userId: string, input: ChatRequestInput, signa
           await assertProviderCircuitAvailable(activeTarget.provider_id);
           const configuration = await loadProviderConfiguration(activeTarget.ai_providers,userId);
           const adapter = providerRegistry.get(configuration.type);
-          for await (const event of adapter.stream(configuration, {
+          for await (const event of adapter.streamChat(configuration, {
             model: activeTarget.model_key,
             messages,
             temperature: input.temperature,
